@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, ClipboardList, Briefcase, Users, 
-  MapPin, CloudRain, Bell, BarChart3, Settings, LogOut, Hexagon
+  Home, FolderOpen, CheckSquare, Plus, Activity, 
+  Map, FileCheck, GitMerge, AlertTriangle, Lightbulb, 
+  Database, Users, Box, BarChart2, Settings, ChevronLeft, ChevronDown
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -12,86 +13,128 @@ export default function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem('sanchalan_token');
     localStorage.removeItem('sanchalan_user');
-    navigate('/');
-  };
-
-  const NavItem = ({ icon: Icon, label, path }) => {
-    const isActive = location.pathname.includes(path);
-    return (
-      <button 
-        onClick={() => navigate(`/admin/${path}`)}
-        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-fast ${
-          isActive 
-            ? 'bg-[var(--accent-primary-subtle)] text-[var(--text-primary)]' 
-            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-2)]'
-        }`}
-      >
-        <Icon size={16} className={isActive ? 'text-[var(--accent-primary)]' : ''} />
-        <span className="text-sm font-medium">{label}</span>
-      </button>
-    );
+    navigate('/login');
   };
 
   const NavGroup = ({ title, children }) => (
     <div className="mb-6">
-      <div className="px-3 mb-2 text-caption">{title}</div>
-      <div className="flex flex-col gap-1">
+      <div className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-2 px-6">
+        {title}
+      </div>
+      <div className="flex flex-col gap-0.5">
         {children}
       </div>
     </div>
   );
 
+  const NavItem = ({ icon: Icon, label, path, active, badge, children }) => {
+    const isActive = active || location.pathname === path;
+    
+    return (
+      <div className="px-3">
+        <button 
+          onClick={() => path && navigate(path)}
+          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+            isActive 
+              ? 'bg-[var(--accent-primary)] text-white font-medium' 
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-white'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Icon size={16} className={isActive ? 'text-white' : 'text-[var(--text-tertiary)]'} />
+            <span>{label}</span>
+          </div>
+          {badge !== undefined && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20' : 'bg-[var(--bg-surface-1)] text-[var(--text-tertiary)]'}`}>
+              {badge}
+            </span>
+          )}
+          {children && <ChevronDown size={14} className="text-[var(--text-tertiary)]" />}
+        </button>
+      </div>
+    );
+  };
+
+  const SubItem = ({ label, badge, active }) => (
+    <button className={`w-full flex items-center justify-between pl-11 pr-4 py-1.5 text-[13px] transition-colors ${active ? 'text-white font-medium' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}>
+      <span>{label}</span>
+      {badge !== undefined && (
+        <span className="text-[10px] font-medium text-[var(--accent-primary)] px-1.5 py-0.5 rounded-md bg-[var(--accent-primary-subtle)]">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+
   return (
-    <aside className="w-[260px] flex-shrink-0 bg-[var(--bg-surface-1)] border-r border-[var(--border-subtle)] flex flex-col h-screen select-none">
-      
-      <div className="h-16 flex items-center gap-3 px-6 border-b border-[var(--border-subtle)]">
-        <div className="w-7 h-7 rounded-[4px] bg-[var(--accent-primary)] flex items-center justify-center">
-          <Hexagon color="white" size={16} strokeWidth={2.5} />
-        </div>
+    <div className="h-full flex flex-col pt-6 pb-4 overflow-y-auto custom-scrollbar">
+      {/* Brand */}
+      <div className="flex items-center gap-3 px-6 mb-8 cursor-pointer" onClick={() => navigate('/admin/dashboard')}>
+        <svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 2L3 11.5V28.5L20 38L37 28.5V11.5L20 2Z" fill="var(--accent-primary)"/>
+          <path d="M20 7L9 13V27L20 33L31 27V13L20 7Z" fill="var(--bg-base)"/>
+          <path d="M25 15L15 15L15 20L25 20L25 25L15 25" stroke="var(--accent-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
         <div>
-          <h1 className="text-sm font-bold tracking-widest leading-none">SANCHALAN</h1>
-          <p className="text-[9px] text-[var(--accent-primary)] uppercase tracking-[0.2em] mt-1 font-semibold opacity-90">Execution Intelligence</p>
+          <h1 className="text-[16px] font-bold tracking-wide leading-none text-white">SANCHALAN</h1>
+          <p className="text-[9px] text-[var(--text-tertiary)] tracking-wider mt-0.5">Project Execution Intelligence</p>
         </div>
       </div>
-      
-      <div className="flex-1 overflow-y-auto py-6 px-4">
-        <NavGroup title="Overview">
-          <NavItem icon={LayoutDashboard} label="Dashboard" path="dashboard" />
-        </NavGroup>
 
-        <NavGroup title="Execution">
-          <NavItem icon={ClipboardList} label="Tasks" path="tasks" />
-          <NavItem icon={Briefcase} label="Projects" path="projects" />
-          <NavItem icon={Users} label="Workers" path="workers" />
-        </NavGroup>
+      <NavGroup title="Overview">
+        <NavItem icon={Home} label="Dashboard" path="/admin/dashboard" active />
+      </NavGroup>
 
-        <NavGroup title="Monitoring">
-          <NavItem icon={MapPin} label="Live Tracking" path="tracking" />
-          <NavItem icon={CloudRain} label="Weather Intel" path="weather" />
-          <NavItem icon={Bell} label="Alerts" path="alerts" />
-        </NavGroup>
-
-        <NavGroup title="Intelligence">
-          <NavItem icon={BarChart3} label="Analytics" path="analytics" />
-          <NavItem icon={Settings} label="System" path="settings" />
-        </NavGroup>
-      </div>
-
-      <div className="p-4 border-t border-[var(--border-subtle)]">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-3)] flex items-center justify-center border border-[var(--border-medium)] text-xs font-semibold text-[var(--text-primary)]">
-            A
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <div className="text-sm font-semibold truncate">Admin User</div>
-            <div className="text-caption truncate">Project Owner</div>
-          </div>
-          <button onClick={handleLogout} className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--status-critical)] hover:bg-[var(--status-critical-bg)] rounded-md transition-fast">
-            <LogOut size={14} />
+      <NavGroup title="Project Management">
+        <NavItem icon={FolderOpen} label="Projects" />
+        <NavItem icon={CheckSquare} label="Tasks">
+          true
+        </NavItem>
+        <div className="flex flex-col gap-0.5 mb-2">
+          <SubItem label="All Tasks" />
+          <SubItem label="Assigned" badge={42} />
+          <SubItem label="In Progress" badge={18} active />
+          <SubItem label="Pending Verification" badge={7} />
+          <SubItem label="Completed" badge={96} />
+        </div>
+        <div className="px-4 mt-2">
+          <button className="w-full flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white py-2 rounded-lg text-sm font-medium shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all">
+            <Plus size={16} /> Assign New Task
           </button>
         </div>
+      </NavGroup>
+
+      <NavGroup title="Execution">
+        <NavItem icon={Activity} label="Live Execution" />
+        <NavItem icon={Map} label="Activities (L5/L6)" />
+        <NavItem icon={FileCheck} label="Evidence Verification" />
+        <NavItem icon={GitMerge} label="Plan vs Reality" />
+      </NavGroup>
+
+      <NavGroup title="Intelligence">
+        <NavItem icon={AlertTriangle} label="Risk & Delay Ripple" />
+        <NavItem icon={Lightbulb} label="AI Recommendations" />
+        <NavItem icon={Database} label="Institutional Memory" />
+      </NavGroup>
+
+      <NavGroup title="Management">
+        <NavItem icon={Users} label="Workers & Teams" />
+        <NavItem icon={Box} label="Resources" />
+        <NavItem icon={BarChart2} label="Reports" />
+      </NavGroup>
+
+      {/* Bottom section */}
+      <div className="mt-auto px-4 pt-4 border-t border-[var(--border-subtle)] flex flex-col gap-1">
+        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-white transition-colors">
+          <Settings size={16} /> Settings
+        </button>
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-white transition-colors"
+        >
+          <ChevronLeft size={16} /> Logout
+        </button>
       </div>
-      
-    </aside>
+    </div>
   );
 }
