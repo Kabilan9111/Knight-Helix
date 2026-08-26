@@ -1,9 +1,30 @@
-import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Home, FolderOpen, CheckSquare, Plus, Activity, 
-  Map, FileCheck, GitMerge, AlertTriangle, Lightbulb, 
-  Database, Users, Box, BarChart2, Settings, ChevronLeft, ChevronDown
+  LayoutDashboard, 
+  Map, 
+  Users, 
+  Settings, 
+  LogOut, 
+  HardHat,
+  FileCheck,
+  Activity,
+  ChevronDown,
+  ChevronRight,
+  GitMerge,
+  Bot,
+  BrainCircuit,
+  Navigation,
+  Home, 
+  FolderOpen, 
+  CheckSquare, 
+  Plus, 
+  AlertTriangle, 
+  Lightbulb, 
+  Database, 
+  Box, 
+  BarChart2, 
+  ChevronLeft
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -109,6 +130,7 @@ export default function Sidebar() {
         <NavItem icon={Map} label="Activities (L5/L6)" />
         <NavItem icon={FileCheck} label="Evidence Verification" />
         <NavItem icon={GitMerge} label="Plan vs Reality" />
+        <NavItem icon={Navigation} label="Live Map" path="/admin/live-map" />
         <NavItem icon={Map} label="Weather Map" path="/admin/weather-map" />
       </NavGroup>
 

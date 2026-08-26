@@ -240,6 +240,61 @@ app.patch('/api/tasks/:id/status', authenticateToken, requireRole('WORKER'), (re
   }
 });
 
+// --- LIVE LOCATION ROUTES ---
+
+app.post('/api/location/update', authenticateToken, requireRole('WORKER'), (req, res) => {
+  const { latitude, longitude, accuracy, timestamp } = req.body;
+  const { workerId, name } = req.user;
+
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO worker_locations (workerId, workerName, latitude, longitude, accuracy, timestamp, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'LIVE')
+      ON CONFLICT(workerId) DO UPDATE SET
+        latitude = excluded.latitude,
+        longitude = excluded.longitude,
+        accuracy = excluded.accuracy,
+        timestamp = excluded.timestamp,
+        status = 'LIVE'
+    `);
+    
+    stmt.run(workerId, name, latitude, longitude, accuracy, timestamp);
+
+    const locationData = { workerId, workerName: name, latitude, longitude, accuracy, timestamp, status: 'LIVE' };
+    io.to('admin_room').emit('worker_location_updated', locationData);
+    
+    res.json({ success: true, location: locationData });
+  } catch (err) {
+    console.error('Location update error:', err);
+    res.status(500).json({ error: 'Database error updating location.' });
+  }
+});
+
+app.post('/api/location/stop', authenticateToken, requireRole('WORKER'), (req, res) => {
+  const { workerId } = req.user;
+
+  try {
+    const timestamp = new Date().toISOString();
+    db.prepare(`UPDATE worker_locations SET status = 'OFFLINE', timestamp = ? WHERE workerId = ?`).run(timestamp, workerId);
+    
+    io.to('admin_room').emit('worker_location_stopped', { workerId, status: 'OFFLINE', timestamp });
+    res.json({ success: true, status: 'OFFLINE' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error stopping location.' });
+  }
+});
+
+app.get('/api/location/me', authenticateToken, requireRole('WORKER'), (req, res) => {
+  const { workerId } = req.user;
+  const location = db.prepare('SELECT * FROM worker_locations WHERE workerId = ?').get(workerId);
+  res.json(location || null);
+});
+
+app.get('/api/admin/locations', authenticateToken, requireRole('ADMIN'), (req, res) => {
+  const locations = db.prepare('SELECT * FROM worker_locations').all();
+  res.json(locations);
+});
+
 // --- SOCKET.IO ---
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);

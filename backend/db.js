@@ -10,4 +10,17 @@ db.pragma('foreign_keys = ON');
 // Note: Tables already exist (users, workers, projects, tasks, task_updates).
 // We do not drop or recreate them to preserve data.
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS worker_locations (
+    workerId TEXT PRIMARY KEY,
+    workerName TEXT,
+    latitude REAL,
+    longitude REAL,
+    accuracy REAL,
+    timestamp TEXT,
+    status TEXT,
+    FOREIGN KEY(workerId) REFERENCES workers(workerId)
+  )
+`).run();
+
 module.exports = db;

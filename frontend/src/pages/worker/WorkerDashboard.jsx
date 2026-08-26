@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext';
 import { ClipboardList, PlayCircle, CheckCircle2, FileCheck, ArrowRight, X, Calendar, MapPin, AlignLeft } from 'lucide-react';
 import TaskDetailsModal from './components/TaskDetailsModal';
+import WorkerLiveLocationCard from './components/WorkerLiveLocationCard';
+import WorkerLiveMap from './components/WorkerLiveMap';
 
 export default function WorkerDashboard() {
   const { user } = useOutletContext();
@@ -106,6 +108,16 @@ export default function WorkerDashboard() {
             <div className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">Completed</div>
           </div>
           <div className="text-3xl font-bold text-[var(--text-primary)]">{completedCount < 10 ? `0${completedCount}` : completedCount}</div>
+        </div>
+      </div>
+
+      {/* Live Location Module */}
+      <div className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-1">
+          <WorkerLiveLocationCard />
+        </div>
+        <div className="md:col-span-2 min-h-[300px]">
+          <WorkerLiveMap />
         </div>
       </div>
 
