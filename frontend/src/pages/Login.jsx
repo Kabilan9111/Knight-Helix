@@ -94,7 +94,7 @@ export default function Login() {
       
       setTimeout(() => {
         setIsLoading(false);
-        navigate('/worker/tasks');
+        navigate('/worker/dashboard');
       }, 500);
       
     } catch(err) {

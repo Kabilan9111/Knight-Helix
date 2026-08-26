@@ -106,9 +106,9 @@ export default function AdminDashboard() {
 
   // Calculate KPIs
   const activeProjects = projects.length || 8;
-  const assignedTasks = tasks.filter(t => t.status === 'Pending').length;
-  const inProgress = tasks.filter(t => t.status === 'In Progress').length;
-  const pendingVerification = tasks.filter(t => t.status === 'Pending Verification' || t.status === 'At Risk').length;
+  const assignedTasks = tasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length;
+  const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length;
+  const pendingVerification = tasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length;
   const atRiskTasks = 11; // Dummy static
   const evidenceConfidence = "94.2%"; // Dummy static
 

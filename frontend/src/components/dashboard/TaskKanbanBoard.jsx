@@ -3,9 +3,9 @@ import { Calendar, MoreVertical, CheckCircle2, AlertCircle, Clock, CheckSquare }
 
 export default function TaskKanbanBoard({ tasks }) {
   const columns = [
-    { id: 'Pending', label: 'ASSIGNED', color: 'text-blue-500', count: tasks.filter(t => t.status === 'Pending').length },
-    { id: 'In Progress', label: 'IN PROGRESS', color: 'text-blue-600', count: tasks.filter(t => t.status === 'In Progress').length },
-    { id: 'Pending Verification', label: 'PENDING VERIFICATION', color: 'text-orange-500', count: tasks.filter(t => t.status === 'Pending Verification' || t.status === 'At Risk').length },
+    { id: 'ASSIGNED', label: 'ASSIGNED', color: 'text-blue-500', count: tasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length },
+    { id: 'IN_PROGRESS', label: 'IN PROGRESS', color: 'text-blue-600', count: tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length },
+    { id: 'SUBMITTED', label: 'PENDING VERIFICATION', color: 'text-orange-500', count: tasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length },
     { id: 'Completed', label: 'COMPLETED', color: 'text-emerald-500', count: tasks.filter(t => t.status === 'Completed').length }
   ];
 
@@ -52,7 +52,12 @@ export default function TaskKanbanBoard({ tasks }) {
             </div>
             
             <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar h-[600px] pb-4">
-              {tasks.filter(t => (col.id === 'Pending Verification' ? (t.status === 'Pending Verification' || t.status === 'At Risk') : t.status === col.id)).map(task => (
+              {tasks.filter(t => {
+                if (col.id === 'SUBMITTED') return t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
+                if (col.id === 'ASSIGNED') return t.status === 'ASSIGNED' || t.status === 'Pending';
+                if (col.id === 'IN_PROGRESS') return t.status === 'IN_PROGRESS' || t.status === 'In Progress';
+                return t.status === col.id;
+              }).map(task => (
                 <div key={task.taskId} className="bg-white border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm hover:shadow-md transition-all group">
                   <div className="flex justify-between items-start mb-1">
                     <h4 className="text-sm font-bold text-[var(--text-primary)] leading-tight">{task.title}</h4>
@@ -104,7 +109,7 @@ export default function TaskKanbanBoard({ tasks }) {
                 </div>
               ))}
               
-              {col.id === 'Pending Verification' && (
+              {col.id === 'SUBMITTED' && (
                 <button className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors mt-2">
                   View All ({col.count})
                 </button>

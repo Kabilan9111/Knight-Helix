@@ -4,7 +4,8 @@ import { SocketProvider } from './context/SocketContext';
 import AppShell from './components/AppShell';
 import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
-import WorkerDashboard from './pages/WorkerDashboard';
+import WorkerLayout from './pages/worker/WorkerLayout';
+import WorkerDashboard from './pages/worker/WorkerDashboard';
 
 function App() {
   return (
@@ -13,7 +14,12 @@ function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/admin/*" element={<AppShell><AdminDashboard /></AppShell>} />
-          <Route path="/worker/*" element={<WorkerDashboard />} />
+          
+          <Route path="/worker" element={<WorkerLayout />}>
+            <Route path="dashboard" element={<WorkerDashboard />} />
+            <Route path="*" element={<Navigate to="/worker/dashboard" replace />} />
+          </Route>
+          
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

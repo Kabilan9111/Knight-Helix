@@ -181,8 +181,8 @@ app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
   const taskId = `TASK-${Math.floor(Math.random()*10000)}`;
   
   const insert = db.prepare(`
-    INSERT INTO tasks (taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate, status, progress)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ASSIGNED', 0)
   `);
   
   try {
@@ -194,29 +194,50 @@ app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
   }
 });
 
-app.post('/api/tasks/:id/update', authenticateToken, requireRole('WORKER'), (req, res) => {
+// Worker Status Update Endpoint (ASSIGNED -> IN_PROGRESS -> SUBMITTED)
+app.patch('/api/tasks/:id/status', authenticateToken, requireRole('WORKER'), (req, res) => {
   const { id } = req.params;
-  const { progress, text, location } = req.body;
+  const { status } = req.body;
   
   const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
-  if (!task || task.assignedWorkerId !== req.user.workerId) {
-    return res.status(403).json({ error: 'Cannot update this task.' });
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found.' });
+  }
+  if (task.assignedWorkerId !== req.user.workerId) {
+    return res.status(403).json({ error: 'Unauthorized. You can only update your own tasks.' });
   }
 
-  let status = task.status;
-  if (progress === 100) status = 'Completed';
-  else if (progress > 0 && status === 'Pending') status = 'In Progress';
+  // Validate state transitions
+  const validTransitions = {
+    'ASSIGNED': ['IN_PROGRESS'],
+    'IN_PROGRESS': ['SUBMITTED'],
+    'SUBMITTED': [] // Only admin can verify/complete from here
+  };
 
-  db.prepare('UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?')
-    .run(progress, status, id);
-    
-  db.prepare(`
-    INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
-    VALUES (?, ?, ?, ?, ?)
-  `).run(`UPD-${Date.now()}`, id, req.user.workerId, text, location);
+  const allowedNextStates = validTransitions[task.status] || [];
+  if (!allowedNextStates.includes(status) && task.status !== status) {
+    return res.status(400).json({ error: `Invalid status transition from ${task.status} to ${status}.` });
+  }
 
-  io.emit('task_updated', { taskId: id, assignedWorkerId: req.user.workerId });
-  res.json({ success: true });
+  let progress = task.progress;
+  if (status === 'IN_PROGRESS' && progress === 0) progress = 10;
+  if (status === 'SUBMITTED') progress = 100;
+
+  try {
+    db.prepare('UPDATE tasks SET status = ?, progress = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?')
+      .run(status, progress, id);
+      
+    // Log the transition
+    db.prepare(`
+      INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
+      VALUES (?, ?, ?, ?, ?)
+    `).run(`UPD-${Date.now()}`, id, req.user.workerId, `Status changed to ${status}`, 'Field Site');
+
+    io.emit('task_updated', { taskId: id, assignedWorkerId: req.user.workerId, status });
+    res.json({ success: true, status });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error during status update.' });
+  }
 });
 
 // --- SOCKET.IO ---
