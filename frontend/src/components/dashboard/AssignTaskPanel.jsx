@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { PlusSquare, Calendar as CalendarIcon } from 'lucide-react';
+import { PlusSquare, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 
-export default function AssignTaskPanel({ projects, workers, onAssign }) {
+export default function AssignTaskPanel({ projects, workers, onAssign, onAssignWithAI }) {
   const [formData, setFormData] = useState({
     projectId: '',
     title: '',
@@ -148,13 +148,24 @@ export default function AssignTaskPanel({ projects, workers, onAssign }) {
           ></textarea>
         </div>
 
-        <div className="flex gap-3 mt-auto pt-4">
-          <button type="button" onClick={() => setFormData({ ...formData, title: '', description: '' })} className="flex-1 py-2.5 bg-white border border-[var(--border-medium)] text-[var(--text-primary)] font-bold text-sm rounded-lg hover:bg-[var(--bg-surface-2)] transition-colors">
-            Reset
+        <div className="mt-auto pt-4 flex flex-col gap-3">
+          <button 
+            type="button" 
+            onClick={() => onAssignWithAI(formData)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-200"
+          >
+            <Sparkles size={16} />
+            ✨ Assign with AI
           </button>
-          <button type="submit" className="flex-1 py-2.5 bg-[var(--accent-primary)] text-white font-bold text-sm rounded-lg shadow-md hover:bg-[var(--accent-primary-hover)] transition-colors">
-            Assign Task
-          </button>
+          
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setFormData({ ...formData, title: '', description: '' })} className="flex-1 py-2.5 bg-white border border-[var(--border-medium)] text-[var(--text-primary)] font-bold text-sm rounded-lg hover:bg-[var(--bg-surface-2)] transition-colors">
+              Reset
+            </button>
+            <button type="submit" className="flex-1 py-2.5 bg-[var(--accent-primary)] text-white font-bold text-sm rounded-lg shadow-md hover:bg-[var(--accent-primary-hover)] transition-colors">
+              Assign Task
+            </button>
+          </div>
         </div>
 
       </form>

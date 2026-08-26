@@ -4,6 +4,7 @@ import TopHeader from '../components/TopHeader';
 import KpiCard from '../components/dashboard/KpiCard';
 import TaskKanbanBoard from '../components/dashboard/TaskKanbanBoard';
 import AssignTaskPanel from '../components/dashboard/AssignTaskPanel';
+import AIPlannerModal from '../components/ai-planner/AIPlannerModal';
 import { 
   LiveProjectExecution, PlanVsReality, AiDecisionSupport, RecentActivityFeed 
 } from '../components/dashboard/BottomCards';
@@ -15,6 +16,9 @@ export default function AdminDashboard() {
   const [projects, setProjects] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [aiPlannerOpen, setAiPlannerOpen] = useState(false);
+  const [aiPlannerContext, setAiPlannerContext] = useState({});
   
   const navigate = useNavigate();
   const socket = useSocket();
@@ -100,6 +104,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAssignWithAI = (contextData) => {
+    // Enrich contextData with full names
+    const enrichedContext = { ...contextData };
+    if (contextData.projectId) {
+      const p = projects.find(x => x.projectId === contextData.projectId);
+      if (p) enrichedContext.projectName = p.name;
+    }
+    if (contextData.assignedWorkerId) {
+      const w = workers.find(x => x.workerId === contextData.assignedWorkerId);
+      if (w) enrichedContext.workerName = w.name;
+    }
+    setAiPlannerContext(enrichedContext);
+    setAiPlannerOpen(true);
+  };
+
   if (loading) {
     return <div className="flex-1 flex items-center justify-center h-full">Loading Dashboard...</div>;
   }
@@ -157,7 +176,12 @@ export default function AdminDashboard() {
         {/* 2 & 3. Task Kanban Board & Assign Task Panel */}
         <div className="flex flex-col xl:flex-row gap-6 h-[720px]">
           <TaskKanbanBoard tasks={tasks} />
-          <AssignTaskPanel projects={projects} workers={workers} onAssign={handleAssignTask} />
+          <AssignTaskPanel 
+            projects={projects} 
+            workers={workers} 
+            onAssign={handleAssignTask} 
+            onAssignWithAI={handleAssignWithAI}
+          />
         </div>
 
         {/* Bottom Cards */}
@@ -169,6 +193,17 @@ export default function AdminDashboard() {
         </div>
 
       </div>
+
+      {aiPlannerOpen && (
+        <AIPlannerModal 
+          onClose={() => setAiPlannerOpen(false)} 
+          contextData={aiPlannerContext}
+          onTaskCreated={() => {
+            fetchData();
+          }}
+        />
+      )}
+
     </div>
   );
 }

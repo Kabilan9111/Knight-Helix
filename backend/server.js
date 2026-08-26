@@ -6,13 +6,16 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const aiPlannerRoutes = require('./routes/aiPlannerRoutes');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api/ai', aiPlannerRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
+app.set('io', io); // Attach io so routes can access it
 
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';

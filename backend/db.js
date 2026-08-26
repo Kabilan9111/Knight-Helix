@@ -38,4 +38,24 @@ db.prepare(`
 
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_worker_history ON worker_location_history(workerId, timestamp)`).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ai_planning_sessions (
+    sessionId TEXT PRIMARY KEY,
+    adminId TEXT,
+    contextData TEXT,
+    status TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ai_audit_events (
+    eventId TEXT PRIMARY KEY,
+    sessionId TEXT,
+    eventType TEXT,
+    details TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
 module.exports = db;
