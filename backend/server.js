@@ -260,6 +260,13 @@ app.post('/api/location/update', authenticateToken, requireRole('WORKER'), (req,
     
     stmt.run(workerId, name, latitude, longitude, accuracy, timestamp);
 
+    // Also append to history
+    const historyStmt = db.prepare(`
+      INSERT INTO worker_location_history (workerId, latitude, longitude, accuracy, timestamp)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    historyStmt.run(workerId, latitude, longitude, accuracy, timestamp);
+
     const locationData = { workerId, workerName: name, latitude, longitude, accuracy, timestamp, status: 'LIVE' };
     io.to('admin_room').emit('worker_location_updated', locationData);
     
@@ -293,6 +300,12 @@ app.get('/api/location/me', authenticateToken, requireRole('WORKER'), (req, res)
 app.get('/api/admin/locations', authenticateToken, requireRole('ADMIN'), (req, res) => {
   const locations = db.prepare('SELECT * FROM worker_locations').all();
   res.json(locations);
+});
+
+app.get('/api/admin/locations/:workerId/history', authenticateToken, requireRole('ADMIN'), (req, res) => {
+  const { workerId } = req.params;
+  const points = db.prepare('SELECT latitude, longitude, accuracy, timestamp FROM worker_location_history WHERE workerId = ? ORDER BY timestamp ASC').all(workerId);
+  res.json({ workerId, points });
 });
 
 // --- SOCKET.IO ---

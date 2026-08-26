@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import TopHeader from '../../components/TopHeader';
 import { useSocket } from '../../context/SocketContext';
-import AdminLiveMapContainer from '../../components/workforce/AdminLiveMapContainer';
+import AdminLiveMapContainer, { getWorkerStatus } from '../../components/workforce/AdminLiveMapContainer';
 import LiveWorkforcePanel from '../../components/workforce/LiveWorkforcePanel';
+import WorkerTrackingModal from '../../components/workforce/WorkerTrackingModal';
 import { Navigation, Info } from 'lucide-react';
 
 export default function LiveWorkforceMap() {
   const [workers, setWorkers] = useState([]);
+  const [workerHistory, setWorkerHistory] = useState({});
   const [focusedWorkerId, setFocusedWorkerId] = useState(null);
+  const [trackingWorkerId, setTrackingWorkerId] = useState(null);
   const [error, setError] = useState(null);
   const socket = useSocket();
 
@@ -37,6 +40,32 @@ export default function LiveWorkforceMap() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch history when worker is focused
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!focusedWorkerId) return;
+      // Skip if we already have some history and just need to append.
+      // But actually, it's safer to fetch the complete history on focus to ensure we didn't miss anything.
+      try {
+        const token = localStorage.getItem('sanchalan_token');
+        const res = await fetch(`http://localhost:3001/api/admin/locations/${focusedWorkerId}/history`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setWorkerHistory(prev => ({
+            ...prev,
+            [focusedWorkerId]: data.points || []
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch history', err);
+      }
+    };
+    
+    fetchHistory();
+  }, [focusedWorkerId]);
+
   useEffect(() => {
     if (socket) {
       // Ensure we are in admin room
@@ -51,6 +80,23 @@ export default function LiveWorkforceMap() {
             return newWorkers;
           }
           return [...prevWorkers, updatedLocation];
+        });
+
+        // Append to history
+        setWorkerHistory((prevHistory) => {
+          const existingHistory = prevHistory[updatedLocation.workerId] || [];
+          return {
+            ...prevHistory,
+            [updatedLocation.workerId]: [
+              ...existingHistory,
+              {
+                latitude: updatedLocation.latitude,
+                longitude: updatedLocation.longitude,
+                accuracy: updatedLocation.accuracy,
+                timestamp: updatedLocation.timestamp
+              }
+            ]
+          };
         });
       };
 
@@ -110,6 +156,7 @@ export default function LiveWorkforceMap() {
             <AdminLiveMapContainer 
               workers={workers}
               focusedWorkerId={focusedWorkerId}
+              workerHistory={workerHistory}
             />
           </div>
 
@@ -119,10 +166,21 @@ export default function LiveWorkforceMap() {
               workers={workers}
               onSelectWorker={setFocusedWorkerId}
               focusedWorkerId={focusedWorkerId}
+              workerHistory={workerHistory}
+              onOpenTracking={(id) => setTrackingWorkerId(id)}
             />
           </div>
         </div>
       </div>
+
+      {trackingWorkerId && (
+        <WorkerTrackingModal
+          worker={workers.find(w => w.workerId === trackingWorkerId)}
+          history={workerHistory[trackingWorkerId]}
+          status={getWorkerStatus(workers.find(w => w.workerId === trackingWorkerId)?.timestamp)}
+          onClose={() => setTrackingWorkerId(null)}
+        />
+      )}
     </div>
   );
 }

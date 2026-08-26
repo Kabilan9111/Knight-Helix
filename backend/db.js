@@ -23,4 +23,19 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS worker_location_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workerId TEXT,
+    latitude REAL,
+    longitude REAL,
+    accuracy REAL,
+    timestamp TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(workerId) REFERENCES workers(workerId)
+  )
+`).run();
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_worker_history ON worker_location_history(workerId, timestamp)`).run();
+
 module.exports = db;
