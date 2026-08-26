@@ -109,6 +109,7 @@ export default function Sidebar() {
         <NavItem icon={Map} label="Activities (L5/L6)" />
         <NavItem icon={FileCheck} label="Evidence Verification" />
         <NavItem icon={GitMerge} label="Plan vs Reality" />
+        <NavItem icon={Map} label="Weather Map" path="/admin/weather-map" />
       </NavGroup>
 
       <NavGroup title="Intelligence">
