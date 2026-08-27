@@ -46,8 +46,11 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-const requireRole = (role) => (req, res, next) => {
-  if (req.user.role !== role) {
+const requireRole = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    if (req.user.role === 'OWNER') {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Owner accounts are read-only.' });
+    }
     return res.status(403).json({ error: 'Unauthorized role.' });
   }
   next();
@@ -58,11 +61,20 @@ const requireRole = (role) => (req, res, next) => {
 // 1. ADMIN LOGIN
 app.post('/api/auth/login', (req, res) => {
   const { email_mobile, password } = req.body;
-  const adminUser = process.env.MOCK_ADMIN_USER;
-  const adminPass = process.env.MOCK_ADMIN_PASS;
+  const adminUser = process.env.MOCK_ADMIN_USER || 'admin';
+  const adminPass = process.env.MOCK_ADMIN_PASS || 'admin123';
+  
+  const ownerUser = process.env.MOCK_OWNER_USER || 'owner';
+  const ownerPass = process.env.MOCK_OWNER_PASS || 'owner123';
 
   if (email_mobile === adminUser && password === adminPass) {
-    const userPayload = { id: 'admin-1', role: 'ADMIN', name: 'Admin User' };
+    const userPayload = { id: 'admin-1', role: 'ADMIN', name: 'Site Engineer User' };
+    const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({ token, user: userPayload });
+  }
+  
+  if (email_mobile === ownerUser && password === ownerPass) {
+    const userPayload = { id: 'owner-1', role: 'OWNER', name: 'Owner Executive' };
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '12h' });
     return res.json({ token, user: userPayload });
   }
@@ -136,7 +148,7 @@ app.post('/api/auth/worker/login', (req, res) => {
 
 // --- DASHBOARD & TASK ROUTES ---
 
-app.get('/api/dashboard/stats', authenticateToken, requireRole('ADMIN'), (req, res) => {
+app.get('/api/dashboard/stats', authenticateToken, requireRole('ADMIN', 'OWNER'), (req, res) => {
   const tasks = db.prepare('SELECT status FROM tasks').all();
   const stats = {
     totalProjects: db.prepare('SELECT count(*) as count FROM projects').get().count,
@@ -172,8 +184,8 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
       LEFT JOIN workers w ON t.assignedWorkerId = w.workerId
       WHERE t.assignedWorkerId = ?
     `).all(workerId);
-  } else if (req.user.role === 'ADMIN') {
-    // Admin sees all
+  } else if (req.user.role === 'ADMIN' || req.user.role === 'OWNER') {
+    // Admin and Owner see all
     tasks = db.prepare(`
       SELECT t.*, p.name as projectName, w.name as workerName 
       FROM tasks t 
@@ -523,12 +535,12 @@ app.get('/api/location/me', authenticateToken, requireRole('WORKER'), (req, res)
   res.json(location || null);
 });
 
-app.get('/api/admin/locations', authenticateToken, requireRole('ADMIN'), (req, res) => {
+app.get('/api/admin/locations', authenticateToken, requireRole('ADMIN', 'OWNER'), (req, res) => {
   const locations = db.prepare('SELECT * FROM worker_locations').all();
   res.json(locations);
 });
 
-app.get('/api/admin/locations/:workerId/history', authenticateToken, requireRole('ADMIN'), (req, res) => {
+app.get('/api/admin/locations/:workerId/history', authenticateToken, requireRole('ADMIN', 'OWNER'), (req, res) => {
   const { workerId } = req.params;
   const points = db.prepare('SELECT latitude, longitude, accuracy, timestamp FROM worker_location_history WHERE workerId = ? ORDER BY timestamp ASC').all(workerId);
   res.json({ workerId, points });

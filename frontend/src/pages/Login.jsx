@@ -57,7 +57,11 @@ export default function Login() {
       
       setTimeout(() => {
         setIsLoading(false);
-        navigate('/admin/dashboard');
+        if (data.user.role === 'OWNER') {
+          navigate('/owner/dashboard');
+        } else {
+          navigate('/admin/dashboard');
+        }
       }, 500);
       
     } catch(err) {
@@ -305,6 +309,12 @@ export default function Login() {
           {/* Segmented Control */}
           <div className="flex p-1 bg-[#101522] border border-[#1e1e38] rounded-xl mb-8">
             <button 
+              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${role === 'OWNER' ? 'bg-[#1C1C35] text-white shadow-md border border-[#2a2a4a]' : 'text-[#64748b] hover:text-white'}`}
+              onClick={() => { setRole('OWNER'); setWorkerMode(null); setError(''); }}
+            >
+              <Globe size={16} className={role === 'OWNER' ? 'text-purple-400' : ''} /> Owner
+            </button>
+            <button 
               className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${role === 'ADMIN' ? 'bg-[#1C1C35] text-white shadow-md border border-[#2a2a4a]' : 'text-[#64748b] hover:text-white'}`}
               onClick={() => { setRole('ADMIN'); setWorkerMode(null); setError(''); }}
             >
@@ -324,8 +334,8 @@ export default function Login() {
             </div>
           )}
 
-          {/* ADMIN FORM */}
-          {role === 'ADMIN' && (
+          {/* ADMIN & OWNER FORM */}
+          {(role === 'ADMIN' || role === 'OWNER') && (
             <form onSubmit={handleAdminAuth} className="flex flex-col gap-5">
               <div>
                 <label className="block text-sm text-[#e2e8f0] mb-2">Username or Email</label>
@@ -507,7 +517,7 @@ export default function Login() {
             </div>
           )}
 
-          {role === 'ADMIN' && (
+          {(role === 'ADMIN' || role === 'OWNER') && (
             <>
               <div className="flex items-center gap-4 my-8">
                 <div className="flex-1 h-px bg-[#1e1e38]"></div>

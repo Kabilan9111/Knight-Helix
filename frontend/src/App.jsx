@@ -12,6 +12,11 @@ import WorkerDashboard from './pages/worker/WorkerDashboard';
 import AdminTaskDetail from './pages/admin/AdminTaskDetail';
 import AdminEvidenceVerification from './pages/admin/AdminEvidenceVerification';
 
+import OwnerShell from './components/owner/OwnerShell';
+import OwnerDashboard from './pages/owner/OwnerDashboard';
+import OwnerLiveMap from './pages/owner/OwnerLiveMap';
+import OwnerIntelligence from './pages/owner/OwnerIntelligence';
+
 function App() {
   return (
     <SocketProvider>
@@ -30,6 +35,13 @@ function App() {
           <Route path="/worker" element={<WorkerLayout />}>
             <Route path="dashboard" element={<WorkerDashboard />} />
             <Route path="*" element={<Navigate to="/worker/dashboard" replace />} />
+          </Route>
+          
+          <Route path="/owner" element={<OwnerShell><Outlet /></OwnerShell>}>
+            <Route path="dashboard" element={<OwnerDashboard />} />
+            <Route path="live-map" element={<OwnerLiveMap />} />
+            <Route path="intelligence" element={<OwnerIntelligence />} />
+            <Route path="*" element={<Navigate to="/owner/dashboard" replace />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/" replace />} />
