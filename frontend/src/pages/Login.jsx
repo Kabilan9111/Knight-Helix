@@ -308,13 +308,13 @@ export default function Login() {
               className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${role === 'ADMIN' ? 'bg-[#1C1C35] text-white shadow-md border border-[#2a2a4a]' : 'text-[#64748b] hover:text-white'}`}
               onClick={() => { setRole('ADMIN'); setWorkerMode(null); setError(''); }}
             >
-              <ShieldCheck size={16} className={role === 'ADMIN' ? 'text-purple-400' : ''} /> Admin / Owner
+              <ShieldCheck size={16} className={role === 'ADMIN' ? 'text-purple-400' : ''} /> Site Engineer
             </button>
             <button 
               className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${role === 'WORKER' ? 'bg-[#1C1C35] text-white shadow-md border border-[#2a2a4a]' : 'text-[#64748b] hover:text-white'}`}
               onClick={() => { setRole('WORKER'); setError(''); }}
             >
-              <HardHat size={16} className={role === 'WORKER' ? 'text-purple-400' : ''} /> Field Worker
+              <HardHat size={16} className={role === 'WORKER' ? 'text-purple-400' : ''} /> Supervisor
             </button>
           </div>
 
