@@ -58,4 +58,54 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS worker_evidence (
+    evidenceId TEXT PRIMARY KEY,
+    taskId TEXT,
+    workerId TEXT,
+    imageBase64 TEXT,
+    description TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ai_evidence_verifications (
+    verificationId TEXT PRIMARY KEY,
+    evidenceId TEXT,
+    taskId TEXT,
+    matchedActivityId TEXT,
+    completionPercentage INTEGER,
+    confidence INTEGER,
+    explanation TEXT,
+    completedWork TEXT,
+    remainingWork TEXT,
+    matchStatus TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
+// Attempt to add matchedActivityId if it doesn't exist (for additive schema updates)
+try {
+  db.prepare('ALTER TABLE ai_evidence_verifications ADD COLUMN matchedActivityId TEXT').run();
+} catch (err) {
+  // Ignore if column already exists
+}
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS task_activities (
+    activityId TEXT PRIMARY KEY,
+    taskId TEXT,
+    activityNumber INTEGER,
+    name TEXT,
+    description TEXT,
+    startDate TEXT,
+    endDate TEXT,
+    status TEXT,
+    progress INTEGER DEFAULT 0,
+    aiConfidence INTEGER,
+    FOREIGN KEY(taskId) REFERENCES tasks(taskId)
+  )
+`).run();
+
 module.exports = db;

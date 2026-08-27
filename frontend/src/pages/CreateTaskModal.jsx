@@ -11,8 +11,8 @@ export default function CreateTaskModal({ onClose, onTaskCreated }) {
   const [workers, setWorkers] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/projects').then(r => r.json()).then(setProjects).catch(()=>null);
-    fetch('http://localhost:3001/api/workers').then(r => r.json()).then(setWorkers).catch(()=>null);
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/projects`).then(r => r.json()).then(setProjects).catch(()=>null);
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/workers`).then(r => r.json()).then(setWorkers).catch(()=>null);
   }, []);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -20,7 +20,7 @@ export default function CreateTaskModal({ onClose, onTaskCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:3001/api/tasks', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

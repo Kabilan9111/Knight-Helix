@@ -5,10 +5,18 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 const db = require('./db');
 const aiPlannerRoutes = require('./routes/aiPlannerRoutes');
+const { processEvidence } = require('./services/evidenceVerificationAgent');
 
 const app = express();
+
+// Configure multer for memory storage (limits: 10MB)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 app.use(cors());
 app.use(express.json());
 app.use('/api/ai', aiPlannerRoutes);
@@ -179,6 +187,40 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
   res.json(tasks);
 });
 
+app.get('/api/tasks/:id/details', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare(`
+    SELECT t.*, p.name as projectName, w.name as workerName 
+    FROM tasks t 
+    LEFT JOIN projects p ON t.projectId = p.projectId 
+    LEFT JOIN workers w ON t.assignedWorkerId = w.workerId
+    WHERE t.taskId = ?
+  `).get(id);
+
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  // Security check for worker
+  if (req.user.role === 'WORKER' && task.assignedWorkerId !== req.user.workerId) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ? ORDER BY activityNumber ASC').all(id);
+  
+  const verifications = db.prepare(`
+    SELECT v.*, e.imageBase64, e.description, e.timestamp as evidenceTime 
+    FROM ai_evidence_verifications v
+    LEFT JOIN worker_evidence e ON v.evidenceId = e.evidenceId
+    WHERE v.taskId = ?
+    ORDER BY v.timestamp DESC
+  `).all(id);
+
+  res.json({
+    task,
+    activities,
+    verifications
+  });
+});
+
 app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
   const { title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate } = req.body;
   const taskId = `TASK-${Math.floor(Math.random()*10000)}`;
@@ -241,6 +283,57 @@ app.patch('/api/tasks/:id/status', authenticateToken, requireRole('WORKER'), (re
   } catch (err) {
     res.status(500).json({ error: 'Database error during status update.' });
   }
+});
+
+// Submit Work Proof (AI Evidence Verification)
+app.post('/api/tasks/:id/evidence', authenticateToken, requireRole('WORKER'), (req, res, next) => {
+  upload.single('image')(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(500).json({ error: `Unknown upload error: ${err.message}` });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const { id } = req.params;
+  const description = req.body.description || '';
+  const workerId = req.user.workerId;
+  
+  if (!req.file && !description.trim()) {
+    return res.status(400).json({ error: 'Either an image or a description must be provided.' });
+  }
+  
+  let imageBase64 = null;
+  if (req.file) {
+    // Convert memory buffer back to the base64 format expected by the existing agent
+    imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  }
+  
+  const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
+  if (!task || task.assignedWorkerId !== workerId) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    const result = await processEvidence(id, workerId, imageBase64, description, io);
+    res.json({ success: true, verification: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'AI Verification failed.' });
+  }
+});
+
+app.get('/api/tasks/:id/verifications', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const verifications = db.prepare(`
+    SELECT v.*, e.imageBase64, e.description, e.timestamp as evidenceTime 
+    FROM ai_evidence_verifications v
+    JOIN worker_evidence e ON v.evidenceId = e.evidenceId
+    WHERE v.taskId = ?
+    ORDER BY v.timestamp DESC
+  `).all(id);
+  res.json(verifications);
 });
 
 // --- LIVE LOCATION ROUTES ---
@@ -312,20 +405,84 @@ app.get('/api/admin/locations/:workerId/history', authenticateToken, requireRole
 });
 
 // --- SOCKET.IO ---
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-  
-  socket.on('join_admin_room', () => {
-    socket.join('admin_room');
-  });
 
-  socket.on('join_worker_room', (workerId) => {
-    socket.join(`worker_${workerId}`);
+// Socket Authentication Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return next(new Error('Authentication error: Invalid token'));
+    socket.user = user;
+    next();
+  });
+});
+
+io.on('connection', (socket) => {
+  console.log(`[SOCKET] User connected: ${socket.id} (${socket.user.role})`);
+  
+  if (socket.user.role === 'WORKER') {
+    socket.join(`worker_${socket.user.workerId}`);
+    
+    socket.on('worker_location_update', (payload) => {
+      const { workerId, name } = socket.user;
+      const { latitude, longitude, accuracy, timestamp } = payload;
+      
+      try {
+        db.prepare(`
+          INSERT INTO worker_locations (workerId, workerName, latitude, longitude, accuracy, timestamp, status)
+          VALUES (?, ?, ?, ?, ?, ?, 'LIVE')
+          ON CONFLICT(workerId) DO UPDATE SET
+            latitude = excluded.latitude,
+            longitude = excluded.longitude,
+            accuracy = excluded.accuracy,
+            timestamp = excluded.timestamp,
+            status = 'LIVE'
+        `).run(workerId, name, latitude, longitude, accuracy, timestamp);
+
+        db.prepare(`
+          INSERT INTO worker_location_history (workerId, latitude, longitude, accuracy, timestamp)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(workerId, latitude, longitude, accuracy, timestamp);
+
+        const locationData = { workerId, workerName: name, latitude, longitude, accuracy, timestamp, status: 'LIVE' };
+        io.to('admin_room').emit('worker_location_updated', locationData);
+        // console.log(`[LOCATION] Broadcasted update for ${workerId}`);
+      } catch (err) {
+        console.error('Socket location update error:', err);
+      }
+    });
+
+    socket.on('worker_location_stop', () => {
+      const { workerId } = socket.user;
+      try {
+        const timestamp = new Date().toISOString();
+        db.prepare(`UPDATE worker_locations SET status = 'OFFLINE', timestamp = ? WHERE workerId = ?`).run(timestamp, workerId);
+        io.to('admin_room').emit('worker_location_stopped', { workerId, status: 'OFFLINE', timestamp });
+      } catch (err) {
+        console.error('Socket location stop error:', err);
+      }
+    });
+  }
+
+  socket.on('join_admin_room', () => {
+    if (socket.user.role === 'ADMIN') {
+      socket.join('admin_room');
+      console.log(`[SOCKET] Admin joined admin_room: ${socket.id}`);
+    }
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    console.log(`[SOCKET] User disconnected: ${socket.id}`);
   });
+});
+
+// --- GLOBAL ERROR HANDLER ---
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err.message || err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Internal Server Error' });
 });
 
 server.listen(PORT, () => {

@@ -9,6 +9,8 @@ import Login from './pages/Login';
 import WorkerLayout from './pages/worker/WorkerLayout';
 import WorkerDashboard from './pages/worker/WorkerDashboard';
 
+import AdminTaskDetail from './pages/admin/AdminTaskDetail';
+
 function App() {
   return (
     <SocketProvider>
@@ -19,6 +21,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="weather-map" element={<WeatherMap />} />
             <Route path="live-map" element={<LiveWorkforceMap />} />
+            <Route path="tasks/:taskId" element={<AdminTaskDetail />} />
             <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
           

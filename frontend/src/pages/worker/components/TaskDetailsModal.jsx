@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { X, Calendar, MapPin, AlignLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { X, Calendar, MapPin, AlignLeft, ShieldCheck, CheckCircle2, UploadCloud, Loader2 } from 'lucide-react';
 
 export default function TaskDetailsModal({ task, onClose, onUpdate }) {
   const [updating, setUpdating] = useState(false);
+  const [showEvidenceForm, setShowEvidenceForm] = useState(false);
+  const [evidenceDesc, setEvidenceDesc] = useState('');
+  const [evidenceImgPreview, setEvidenceImgPreview] = useState(null);
+  const [evidenceFile, setEvidenceFile] = useState(null);
   const token = localStorage.getItem('sanchalan_token');
 
   const handleStatusUpdate = async (newStatus) => {
     setUpdating(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/tasks/${task.taskId}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${task.taskId}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -22,6 +26,102 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
       } else {
         const error = await res.json();
         alert(error.error || "Failed to update status");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+    setUpdating(false);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+      }
+      setEvidenceFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEvidenceImgPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1920;
+          const MAX_HEIGHT = 1920;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            }));
+          }, 'image/jpeg', 0.8); // 80% quality JPEG
+        };
+      };
+    });
+  };
+
+  const submitEvidence = async () => {
+    if (!evidenceDesc && !evidenceFile) return alert('Provide an image or description.');
+    setUpdating(true);
+    try {
+      const formData = new FormData();
+      if (evidenceDesc) formData.append('description', evidenceDesc);
+      
+      if (evidenceFile) {
+        const compressedFile = await compressImage(evidenceFile);
+        formData.append('image', compressedFile);
+      }
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${task.taskId}/evidence`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+          // Note: Do NOT set Content-Type header when sending FormData.
+          // The browser sets it automatically with the correct boundary.
+        },
+        body: formData
+      });
+      
+      if (res.ok) {
+        onUpdate();
+        setShowEvidenceForm(false);
+        setEvidenceDesc('');
+        setEvidenceFile(null);
+        setEvidenceImgPreview(null);
+      } else {
+        const error = await res.json();
+        alert(error.error || "Failed to submit evidence");
       }
     } catch (err) {
       console.error(err);
@@ -117,7 +217,82 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
             </div>
           </div>
 
+          {/* AI Progress Section */}
+          {task.progress > 0 && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <ShieldCheck size={100} />
+              </div>
+              <div className="relative z-10">
+                <div className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <ShieldCheck size={14}/> AI Verified Progress
+                </div>
+                <div className="flex items-end gap-3 mb-3">
+                  <div className="text-4xl font-black text-indigo-900 leading-none">{task.progress}%</div>
+                  <div className="text-sm font-medium text-indigo-700 pb-1">Completed</div>
+                </div>
+                <div className="h-2 w-full bg-indigo-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${task.progress}%` }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
+
+        {/* Evidence Form Inline */}
+        {showEvidenceForm && (
+          <div className="px-6 py-5 border-t border-[var(--border-subtle)] bg-white animate-in slide-in-from-bottom-4">
+            <h4 className="text-sm font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+              <UploadCloud size={16} className="text-blue-600" />
+              Submit Work Proof
+            </h4>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Photo Evidence</label>
+                <div className="border-2 border-dashed border-[var(--border-medium)] rounded-xl p-4 text-center hover:bg-[var(--bg-surface-2)] transition-colors cursor-pointer relative">
+                  <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  {evidenceImgPreview ? (
+                    <div className="flex flex-col items-center">
+                      <img src={evidenceImgPreview} alt="Preview" className="h-24 object-cover rounded-lg mb-2 shadow-sm" />
+                      <span className="text-xs font-bold text-blue-600">Change Photo</span>
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium text-[var(--text-secondary)] flex flex-col items-center gap-2">
+                      <UploadCloud size={24} className="text-[var(--text-tertiary)]" />
+                      Tap to upload photo
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Work Description</label>
+                <textarea 
+                  value={evidenceDesc}
+                  onChange={(e) => setEvidenceDesc(e.target.value)}
+                  placeholder="Describe the completed work..."
+                  className="w-full bg-[var(--bg-surface-2)] border border-[var(--border-medium)] rounded-xl px-4 py-3 text-[14px] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none h-24"
+                ></textarea>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-4">
+              <button 
+                onClick={() => setShowEvidenceForm(false)}
+                className="px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-surface-2)] rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitEvidence}
+                disabled={updating || (!evidenceFile && !evidenceDesc)}
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {updating ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                Submit for AI Verification
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-2)] flex justify-end gap-3">
@@ -132,13 +307,12 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
             </button>
           )}
 
-          {normalizedStatus === 'IN_PROGRESS' && (
+          {normalizedStatus === 'IN_PROGRESS' && !showEvidenceForm && (
             <button 
-              disabled={updating}
-              onClick={() => handleStatusUpdate('SUBMITTED')}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2 disabled:opacity-50"
+              onClick={() => setShowEvidenceForm(true)}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2"
             >
-              <ShieldCheck size={18} /> Submit for Verification
+              <UploadCloud size={18} /> Add Work Proof
             </button>
           )}
 

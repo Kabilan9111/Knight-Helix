@@ -17,16 +17,28 @@ export default function LiveWorkforceMap() {
   const fetchLocations = async () => {
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch('http://localhost:3001/api/admin/locations', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/locations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) {
+      
+      const contentType = res.headers.get("content-type");
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('Location API error:', res.status, text);
+        throw new Error(`Location API failed: ${res.status}`);
+      }
+      
+      if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await res.json();
         setWorkers(data);
+      } else {
+        const text = await res.text();
+        console.error('Location API received non-JSON response:', text);
+        throw new Error('Received HTML instead of JSON');
       }
     } catch (err) {
       console.error('Failed to fetch locations', err);
-      setError('Unable to fetch live locations.');
+      setError('Unable to connect to location service');
     }
   };
 
@@ -48,7 +60,7 @@ export default function LiveWorkforceMap() {
       // But actually, it's safer to fetch the complete history on focus to ensure we didn't miss anything.
       try {
         const token = localStorage.getItem('sanchalan_token');
-        const res = await fetch(`http://localhost:3001/api/admin/locations/${focusedWorkerId}/history`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/locations/${focusedWorkerId}/history`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

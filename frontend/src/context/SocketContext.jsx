@@ -9,7 +9,12 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3001');
+    const token = localStorage.getItem('sanchalan_token');
+    const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+      auth: {
+        token: token
+      }
+    });
     setSocket(newSocket);
     return () => newSocket.close();
   }, []);

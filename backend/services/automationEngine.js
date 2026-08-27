@@ -48,6 +48,28 @@ function executeApprovedPlan(plan, adminId, io) {
       plan.dueDate
     );
 
+    // Insert Task Activities if scheduleSteps exist
+    if (plan.scheduleSteps && Array.isArray(plan.scheduleSteps)) {
+      const insertActivity = db.prepare(`
+        INSERT INTO task_activities (activityId, taskId, activityNumber, name, description, startDate, endDate, status, progress)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'ASSIGNED', 0)
+      `);
+      
+      plan.scheduleSteps.forEach((step, index) => {
+        const activityId = `ACT-${Date.now()}-${index}`;
+        const name = step.description.split('.')[0] || `Activity ${index + 1}`;
+        insertActivity.run(
+          activityId,
+          taskId,
+          index + 1,
+          name.substring(0, 50),
+          step.description,
+          step.date || plan.startDate,
+          step.date || plan.dueDate
+        );
+      });
+    }
+
     // 4. Emit Socket.IO Events
     if (io) {
       io.emit('task_created', { taskId, assignedWorkerId: plan.assignedWorkerId });

@@ -1,7 +1,9 @@
 import React from 'react';
-import { Calendar, MoreVertical, CheckCircle2, AlertCircle, Clock, CheckSquare } from 'lucide-react';
+import { Calendar, MoreVertical, CheckCircle2, AlertCircle, Clock, CheckSquare, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function TaskKanbanBoard({ tasks }) {
+  const navigate = useNavigate();
   const columns = [
     { id: 'ASSIGNED', label: 'ASSIGNED', color: 'text-blue-500', count: tasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length },
     { id: 'IN_PROGRESS', label: 'IN PROGRESS', color: 'text-blue-600', count: tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length },
@@ -58,8 +60,12 @@ export default function TaskKanbanBoard({ tasks }) {
                 if (col.id === 'IN_PROGRESS') return t.status === 'IN_PROGRESS' || t.status === 'In Progress';
                 return t.status === col.id;
               }).map(task => (
-                <div key={task.taskId} className="bg-white border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm hover:shadow-md transition-all group">
-                  <div className="flex justify-between items-start mb-1">
+                <div 
+                  key={task.taskId} 
+                  onClick={() => navigate(`/admin/tasks/${task.taskId}`)}
+                  className="bg-white border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden"
+                >
+                  <div className="flex justify-between items-start mb-1 relative z-10">
                     <h4 className="text-sm font-bold text-[var(--text-primary)] leading-tight">{task.title}</h4>
                     <button className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity">
                       <MoreVertical size={16} />
@@ -77,18 +83,21 @@ export default function TaskKanbanBoard({ tasks }) {
                     <span className="text-[10px] bg-blue-50 text-blue-600 font-semibold px-1.5 rounded">+1</span>
                   </div>
 
-                  {col.id === 'In Progress' && task.progress !== undefined && (
-                    <div className="mb-4">
-                      <div className="flex justify-end mb-1">
-                        <span className="text-xs font-bold text-[var(--text-primary)]">{task.progress}%</span>
+                  {col.id === 'In Progress' && task.progress > 0 && (
+                    <div className="mb-4 relative z-10">
+                      <div className="flex justify-between mb-1 items-center">
+                        <span className="text-[10px] font-bold text-indigo-600 flex items-center gap-1">
+                          <ShieldCheck size={12}/> AI VERIFIED
+                        </span>
+                        <span className="text-xs font-bold text-indigo-800">{task.progress}%</span>
                       </div>
-                      <div className="h-1.5 w-full bg-[var(--bg-surface-3)] rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 rounded-full" style={{ width: `${task.progress}%` }}></div>
+                      <div className="h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${task.progress}%` }}></div>
                       </div>
                     </div>
                   )}
 
-                  <div className="space-y-1.5 mb-4">
+                  <div className="space-y-1.5 mb-4 relative z-10">
                     <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] font-medium">
                       <Calendar size={12} className="text-[var(--text-tertiary)]" /> 
                       {col.id === 'Completed' ? 'Completed: ' : 'Started: '}{task.startDate || '25 Aug 2026'}

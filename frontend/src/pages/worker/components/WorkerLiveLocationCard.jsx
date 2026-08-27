@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, NavigationOff, AlertCircle } from 'lucide-react';
+import { useSocket } from '../../../context/SocketContext';
 
 export default function WorkerLiveLocationCard() {
+  const socket = useSocket();
   const [status, setStatus] = useState('LOCATION_NOT_REQUESTED');
   const [location, setLocation] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -21,9 +23,8 @@ export default function WorkerLiveLocationCard() {
     };
   }, [watchId]);
 
-  const sendLocationUpdate = async (position) => {
+  const sendLocationUpdate = (position) => {
     try {
-      const token = localStorage.getItem('sanchalan_token');
       const payload = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -31,16 +32,8 @@ export default function WorkerLiveLocationCard() {
         timestamp: new Date().toISOString()
       };
       
-      const res = await fetch('http://localhost:3001/api/location/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
+      if (socket) {
+        socket.emit('worker_location_update', payload);
         setLocation(payload);
         setLastUpdate(new Date());
       }
@@ -76,7 +69,7 @@ export default function WorkerLiveLocationCard() {
     setWatchId(id);
   };
 
-  const handleStopSharing = async () => {
+  const handleStopSharing = () => {
     if (watchId !== null) {
       navigator.geolocation.clearWatch(watchId);
       setWatchId(null);
@@ -85,14 +78,8 @@ export default function WorkerLiveLocationCard() {
     setStatus('LOCATION_NOT_REQUESTED');
     setLocation(null);
 
-    try {
-      const token = localStorage.getItem('sanchalan_token');
-      await fetch('http://localhost:3001/api/location/stop', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-    } catch (err) {
-      console.error('Failed to notify stop sharing', err);
+    if (socket) {
+      socket.emit('worker_location_stop');
     }
   };
 
