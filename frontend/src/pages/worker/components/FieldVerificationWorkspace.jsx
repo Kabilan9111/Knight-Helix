@@ -268,7 +268,10 @@ export default function FieldVerificationWorkspace({ task, onClose, onVerified }
         {/* Left Side: Map Hero */}
         <div className="flex-1 relative bg-slate-100 h-full">
           <MapContainer center={defaultCenter} zoom={18} className="w-full h-full" zoomControl={false}>
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+            <TileLayer 
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+            />
             <MapPanner position={currentPosition} active={status === 'TRACKING'} />
             
             {coordinates.length > 0 && <Polyline positions={coordinates} color="#3b82f6" weight={5} opacity={0.8} />}
