@@ -93,6 +93,25 @@ try {
 }
 
 db.prepare(`
+  CREATE TABLE IF NOT EXISTS field_verifications (
+    verificationId TEXT PRIMARY KEY,
+    taskId TEXT,
+    activityId TEXT,
+    engineerId TEXT,
+    startedAt TEXT,
+    stoppedAt TEXT,
+    coordinates TEXT,
+    distance REAL,
+    estimatedArea REAL,
+    gpsAccuracy REAL,
+    status TEXT,
+    aiVerificationResult TEXT,
+    approvedAt TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
+db.prepare(`
   CREATE TABLE IF NOT EXISTS task_activities (
     activityId TEXT PRIMARY KEY,
     taskId TEXT,

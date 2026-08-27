@@ -218,6 +218,126 @@ WORKER SUBMITTED TEXT: "${description}"
   return verificationResult;
 }
 
+const FIELD_SYSTEM_PROMPT = `
+You are the SANCHALAN Autonomous AI Field Verification Agent.
+Your job is to analyze spatial GPS evidence (distance, area, path) alongside task activity context to determine the verified completion percentage of a specific task activity.
+
+RULES:
+1. You will receive TASK details, ACTIVITY details, and FIELD EVIDENCE (distance, area, GPS accuracy, and optional images/descriptions).
+2. DO NOT blindly trust the engineer's claim. Reason from the available evidence.
+3. OUTPUT STRICT JSON MATCHING THIS EXACT SCHEMA:
+{
+  "matchedActivityId": "ACT-12345",
+  "recommendedProgress": 65,
+  "confidence": 87,
+  "evidenceMatch": 91,
+  "spatialVerification": 82,
+  "scheduleConsistency": 88,
+  "decision": "PENDING_APPROVAL",
+  "completedWork": ["Excavated perimeter"],
+  "remainingWork": ["Final depth grading"],
+  "evidenceAssessment": "Visual evidence aligns with excavation.",
+  "spatialAssessment": "Traced 124m path with 1800m2 area matching the planned zone.",
+  "scheduleAssessment": "Work is within planned dates.",
+  "strategicExplanation": "Field verification traced approximately 1800 m2... [Write a professional, non-generic paragraph explaining EXACTLY what the spatial metrics and evidence prove, and why the percentage was recommended]",
+  "recommendedNextStep": "Complete the remaining interior zone."
+}
+4. The strategicExplanation must explicitly answer: What evidence was submitted? Which activity? What do GPS trace/distance/area demonstrate? Does it align with scheduled activity? What portion is complete/incomplete? Why this percentage? What next?
+`;
+
+async function processFieldVerification(taskId, engineerId, fieldData, io) {
+  const { activityId, distance, estimatedArea, gpsAccuracy, startedAt, stoppedAt, description, imageBase64 } = fieldData;
+  
+  const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(taskId);
+  if (!task) throw new Error("Task not found");
+
+  const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ? ORDER BY activityNumber ASC').all(taskId);
+  const targetActivity = activityId ? activities.find(a => a.activityId === activityId) : null;
+
+  let verificationResult;
+
+  if (!genAI) {
+    console.log("No GEMINI_API_KEY found. Using fallback mock field verification.");
+    await new Promise(r => setTimeout(r, 1500));
+    
+    verificationResult = {
+      matchedActivityId: targetActivity ? targetActivity.activityId : (activities[0]?.activityId || null),
+      recommendedProgress: 65,
+      confidence: 87,
+      evidenceMatch: 91,
+      spatialVerification: 82,
+      scheduleConsistency: 88,
+      decision: "PENDING_APPROVAL",
+      completedWork: ["Tracked perimeter boundary"],
+      remainingWork: ["Final inspection"],
+      evidenceAssessment: "The field trace corresponds to the assigned area.",
+      spatialAssessment: `Recorded distance of ${distance}m and area of ${estimatedArea || 0}m2.`,
+      scheduleAssessment: "Consistent with schedule.",
+      strategicExplanation: `Field verification traced a distance of ${distance}m. The spatial evidence supports the progression of this activity. No significant conflicts detected.`,
+      recommendedNextStep: "Proceed with final review."
+    };
+  } else {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
+      const activitiesList = activities.map(a => 
+        `- ID: ${a.activityId}, Name: ${a.name}, Description: ${a.description}, Current Progress: ${a.progress}%`
+      ).join('\n');
+
+      const contextStr = `
+TASK:
+Title: ${task.title}
+Description: ${task.description}
+Location: ${task.site}
+Dates: ${task.startDate} to ${task.dueDate}
+
+ACTIVITIES:
+${activitiesList || 'No specific activities mapped.'}
+Target Activity ID: ${activityId || 'Not specified'}
+
+FIELD EVIDENCE:
+Distance Traced: ${distance} meters
+Estimated Enclosed Area: ${estimatedArea ? estimatedArea + ' m2' : 'N/A (Not closed loop)'}
+GPS Accuracy: ±${gpsAccuracy} meters
+Duration: ${startedAt} to ${stoppedAt}
+Engineer Description: "${description || 'None'}"
+      `;
+
+      const contents = [
+        { role: 'user', parts: [{ text: FIELD_SYSTEM_PROMPT }] },
+        { role: 'model', parts: [{ text: 'Understood. I will respond with the required JSON schema.' }] }
+      ];
+
+      const parts = [{ text: contextStr }];
+      if (imageBase64) {
+        const mimeType = imageBase64.split(';')[0].split(':')[1];
+        const base64Data = imageBase64.split(',')[1];
+        parts.push({ inlineData: { data: base64Data, mimeType: mimeType || 'image/jpeg' } });
+      }
+
+      contents.push({ role: 'user', parts });
+
+      const result = await model.generateContent({ contents });
+      const text = result.response.text();
+      
+      let cleaned = text.trim();
+      if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/```json/g, '').replace(/```/g, '').trim();
+      if (cleaned.startsWith('```')) cleaned = cleaned.replace(/```/g, '').trim();
+      
+      verificationResult = JSON.parse(cleaned);
+
+    } catch (err) {
+      console.error("AI Field Verification Error:", err);
+      throw new Error("AI verification failed.");
+    }
+  }
+
+  // NOTE: We do NOT update task progress here. We only return the recommendation.
+  // The frontend will present it, and the user must click APPROVE VERIFICATION.
+  return verificationResult;
+}
+
 module.exports = {
-  processEvidence
+  processEvidence,
+  processFieldVerification
 };

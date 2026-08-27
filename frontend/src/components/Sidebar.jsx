@@ -128,7 +128,7 @@ export default function Sidebar() {
       <NavGroup title="Execution">
         <NavItem icon={Activity} label="Live Execution" />
         <NavItem icon={Map} label="Activities (L5/L6)" />
-        <NavItem icon={FileCheck} label="Evidence Verification" />
+        <NavItem icon={FileCheck} label="Evidence Verification" path="/admin/evidence-verification" />
         <NavItem icon={GitMerge} label="Plan vs Reality" />
         <NavItem icon={Navigation} label="Live Map" path="/admin/live-map" />
         <NavItem icon={Map} label="Weather Map" path="/admin/weather-map" />

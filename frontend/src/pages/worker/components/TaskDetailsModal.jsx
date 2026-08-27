@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Calendar, MapPin, AlignLeft, ShieldCheck, CheckCircle2, UploadCloud, Loader2 } from 'lucide-react';
+import { X, Calendar, MapPin, AlignLeft, ShieldCheck, CheckCircle2, UploadCloud, Loader2, Navigation } from 'lucide-react';
+import FieldVerificationWorkspace from './FieldVerificationWorkspace';
 
 export default function TaskDetailsModal({ task, onClose, onUpdate }) {
   const [updating, setUpdating] = useState(false);
@@ -145,6 +146,19 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
                       normalizedStatus === 'IN_PROGRESS' ? 2 :
                       normalizedStatus === 'SUBMITTED' ? 3 : 4;
 
+  if (showEvidenceForm) {
+    return (
+      <FieldVerificationWorkspace 
+        task={task} 
+        onClose={() => setShowEvidenceForm(false)} 
+        onVerified={() => {
+          setShowEvidenceForm(false);
+          onUpdate();
+        }} 
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -240,59 +254,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
 
         </div>
 
-        {/* Evidence Form Inline */}
-        {showEvidenceForm && (
-          <div className="px-6 py-5 border-t border-[var(--border-subtle)] bg-white animate-in slide-in-from-bottom-4">
-            <h4 className="text-sm font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-              <UploadCloud size={16} className="text-blue-600" />
-              Submit Work Proof
-            </h4>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Photo Evidence</label>
-                <div className="border-2 border-dashed border-[var(--border-medium)] rounded-xl p-4 text-center hover:bg-[var(--bg-surface-2)] transition-colors cursor-pointer relative">
-                  <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  {evidenceImgPreview ? (
-                    <div className="flex flex-col items-center">
-                      <img src={evidenceImgPreview} alt="Preview" className="h-24 object-cover rounded-lg mb-2 shadow-sm" />
-                      <span className="text-xs font-bold text-blue-600">Change Photo</span>
-                    </div>
-                  ) : (
-                    <div className="text-sm font-medium text-[var(--text-secondary)] flex flex-col items-center gap-2">
-                      <UploadCloud size={24} className="text-[var(--text-tertiary)]" />
-                      Tap to upload photo
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Work Description</label>
-                <textarea 
-                  value={evidenceDesc}
-                  onChange={(e) => setEvidenceDesc(e.target.value)}
-                  placeholder="Describe the completed work..."
-                  className="w-full bg-[var(--bg-surface-2)] border border-[var(--border-medium)] rounded-xl px-4 py-3 text-[14px] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none h-24"
-                ></textarea>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button 
-                onClick={() => setShowEvidenceForm(false)}
-                className="px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-surface-2)] rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={submitEvidence}
-                disabled={updating || (!evidenceFile && !evidenceDesc)}
-                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                {updating ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                Submit for AI Verification
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Removed inline evidence form to use FieldVerificationWorkspace */}
 
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-2)] flex justify-end gap-3">
@@ -312,7 +274,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
               onClick={() => setShowEvidenceForm(true)}
               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2"
             >
-              <UploadCloud size={18} /> Add Work Proof
+              <Navigation size={18} /> Start Field Verification
             </button>
           )}
 

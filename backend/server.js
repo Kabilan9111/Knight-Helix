@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const db = require('./db');
 const aiPlannerRoutes = require('./routes/aiPlannerRoutes');
-const { processEvidence } = require('./services/evidenceVerificationAgent');
+const { processEvidence, processFieldVerification } = require('./services/evidenceVerificationAgent');
 
 const app = express();
 
@@ -334,6 +334,136 @@ app.get('/api/tasks/:id/verifications', authenticateToken, (req, res) => {
     ORDER BY v.timestamp DESC
   `).all(id);
   res.json(verifications);
+});
+
+// Submit Field Verification (Spatial Tracking)
+app.post('/api/tasks/:id/verify-field', authenticateToken, requireRole('WORKER'), (req, res, next) => {
+  upload.single('image')(req, res, function (err) {
+    if (err) return res.status(500).json({ error: `Upload error: ${err.message}` });
+    next();
+  });
+}, async (req, res) => {
+  const { id } = req.params;
+  const workerId = req.user.workerId;
+  const { activityId, distance, estimatedArea, gpsAccuracy, startedAt, stoppedAt, coordinates, description } = req.body;
+  
+  if (!distance || distance < 0) return res.status(400).json({ error: 'Invalid distance.' });
+
+  const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
+  if (!task || task.assignedWorkerId !== workerId) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  let imageBase64 = null;
+  if (req.file) {
+    imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  }
+
+  try {
+    const fieldData = {
+      activityId,
+      distance: parseFloat(distance),
+      estimatedArea: estimatedArea && estimatedArea !== 'null' ? parseFloat(estimatedArea) : null,
+      gpsAccuracy: parseFloat(gpsAccuracy),
+      startedAt,
+      stoppedAt,
+      description,
+      imageBase64
+    };
+
+    const aiResult = await processFieldVerification(id, workerId, fieldData, io);
+    
+    // Save the session as PENDING_APPROVAL
+    const verificationId = `FVERIF-${Date.now()}`;
+    db.prepare(`
+      INSERT INTO field_verifications (
+        verificationId, taskId, activityId, engineerId, startedAt, stoppedAt, 
+        coordinates, distance, estimatedArea, gpsAccuracy, status, aiVerificationResult
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_APPROVAL', ?)
+    `).run(
+      verificationId, id, activityId, workerId, startedAt, stoppedAt,
+      coordinates, fieldData.distance, fieldData.estimatedArea, fieldData.gpsAccuracy,
+      JSON.stringify(aiResult)
+    );
+
+    res.json({ success: true, verificationId, aiResult });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Field Verification failed.' });
+  }
+});
+
+// Approve Field Verification
+app.post('/api/field-verifications/:id/approve', authenticateToken, requireRole('WORKER'), (req, res) => {
+  const { id } = req.params;
+  const workerId = req.user.workerId;
+
+  const verification = db.prepare('SELECT * FROM field_verifications WHERE verificationId = ?').get(id);
+  if (!verification || verification.engineerId !== workerId || verification.status !== 'PENDING_APPROVAL') {
+    return res.status(400).json({ error: 'Invalid verification session.' });
+  }
+
+  const aiResult = JSON.parse(verification.aiVerificationResult);
+  const targetActivityId = verification.activityId || aiResult.matchedActivityId;
+
+  try {
+    db.transaction(() => {
+      // 1. Mark Approved
+      db.prepare(`UPDATE field_verifications SET status = 'APPROVED', approvedAt = CURRENT_TIMESTAMP WHERE verificationId = ?`).run(id);
+
+      // 2. Update Activity
+      if (targetActivityId) {
+        let actStatus = 'IN_PROGRESS';
+        if (aiResult.recommendedProgress >= 100) actStatus = 'COMPLETED';
+        db.prepare(`UPDATE task_activities SET progress = ?, status = ?, aiConfidence = ? WHERE activityId = ?`).run(
+          aiResult.recommendedProgress, actStatus, aiResult.confidence, targetActivityId
+        );
+      }
+
+      // 3. Recalculate Global Task Progress
+      const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ?').all(verification.taskId);
+      let overallProgress = aiResult.recommendedProgress;
+      
+      if (activities.length > 0) {
+        const total = activities.reduce((sum, act) => sum + act.progress, 0);
+        overallProgress = Math.round(total / activities.length);
+      }
+
+      let newStatus = overallProgress >= 100 ? 'SUBMITTED' : 'IN_PROGRESS';
+      
+      db.prepare(`UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?`).run(
+        overallProgress, newStatus, verification.taskId
+      );
+
+      db.prepare(`
+        INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
+        VALUES (?, ?, ?, ?, ?)
+      `).run(`UPD-${Date.now()}`, verification.taskId, workerId, `Field Verification Approved. Progress: ${overallProgress}%`, 'System');
+
+      // 4. Emit Events
+      io.emit('field_verification_approved', { taskId: verification.taskId });
+      io.emit('task_updated', { taskId: verification.taskId, status: newStatus });
+    })();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to approve verification.' });
+  }
+});
+
+// Reject Field Verification
+app.post('/api/field-verifications/:id/reject', authenticateToken, requireRole('WORKER'), (req, res) => {
+  const { id } = req.params;
+  const workerId = req.user.workerId;
+
+  const verification = db.prepare('SELECT * FROM field_verifications WHERE verificationId = ?').get(id);
+  if (!verification || verification.engineerId !== workerId) {
+    return res.status(400).json({ error: 'Invalid verification session.' });
+  }
+
+  db.prepare(`UPDATE field_verifications SET status = 'REJECTED' WHERE verificationId = ?`).run(id);
+  res.json({ success: true });
 });
 
 // --- LIVE LOCATION ROUTES ---
