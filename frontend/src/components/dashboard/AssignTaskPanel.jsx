@@ -7,8 +7,8 @@ export default function AssignTaskPanel({ projects, workers, onAssign, onAssignW
     title: '',
     assignedWorkerId: '',
     site: 'Site B - Construction Area',
-    startDate: '25 Aug 2026',
-    dueDate: '28 Aug 2026',
+    startDate: '2026-08-25',
+    dueDate: '2026-08-28',
     priority: 'High',
     description: ''
   });
@@ -101,24 +101,24 @@ export default function AssignTaskPanel({ projects, workers, onAssign, onAssignW
             <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1.5">Planned Start</label>
             <div className="relative">
               <input 
+                type="date"
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleChange}
                 className="w-full bg-white border border-[var(--border-medium)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
               />
-              <CalendarIcon size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
             </div>
           </div>
           <div className="flex-1">
             <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1.5">Due Date</label>
             <div className="relative">
               <input 
+                type="date"
                 name="dueDate"
                 value={formData.dueDate}
                 onChange={handleChange}
                 className="w-full bg-white border border-[var(--border-medium)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
               />
-              <CalendarIcon size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
             </div>
           </div>
         </div>

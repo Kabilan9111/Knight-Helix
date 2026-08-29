@@ -10,7 +10,7 @@ export default function AIPlannerModal({ onClose, contextData, onTaskCreated }) 
     { role: 'model', content: "Hello! I see you want to assign a new task. Tell me what you want to accomplish." }
   ]);
   const [plan, setPlan] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
+  const [sessionId, setSessionId] = useState(`SESSION-${Date.now()}`);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState(null);
@@ -36,16 +36,21 @@ export default function AIPlannerModal({ onClose, contextData, onTaskCreated }) 
     setTraces([]);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/chat`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/plan/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          history: newHistory,
-          contextData,
-          sessionId
+          sessionId,
+          userMessage: text,
+          projectId: contextData?.projectId,
+          contextData: contextData,
+          executionWindow: {
+            startDate: contextData?.startDate,
+            endDate: contextData?.dueDate
+          }
         })
       });
 
@@ -54,10 +59,34 @@ export default function AIPlannerModal({ onClose, contextData, onTaskCreated }) 
       
       setSessionId(data.sessionId);
       
-      setHistory(prev => [...prev, { role: 'model', content: data.message }]);
+      let modelMessage = "I've processed your request.";
+      if (data.question) {
+        modelMessage = data.question.question;
+      } else if (data.plan) {
+        modelMessage = "I have generated an execution plan based on your constraints. Please review the schedule on the right.";
+      }
+      
+      setHistory(prev => [...prev, { role: 'model', content: modelMessage }]);
       
       if (data.plan) {
-        setPlan(data.plan);
+        const mappedPlan = {
+          projectName: contextData?.projectName || `Project ${contextData?.projectId || ''}`,
+          title: contextData?.title || data.plan.activities?.[0]?.title || 'Task Execution',
+          assignedWorkerId: data.plan.activities?.[0]?.assignedWorkerId || contextData?.assignedWorkerId,
+          workerName: contextData?.workerName || data.plan.activities?.[0]?.assignedWorkerId || 'Unassigned',
+          location: contextData?.site || 'Site',
+          startDate: contextData?.startDate,
+          dueDate: contextData?.dueDate,
+          priority: contextData?.priority || 'High',
+          scheduleSteps: (data.plan.activities || []).map(act => {
+            const dateStr = act.startDate ? new Date(act.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+            return { date: dateStr, description: act.title || act.id };
+          }),
+          risks: data.validation?.conflicts?.map(c => ({ level: 'High', description: c })) || [],
+          confidence: data.validation?.valid ? 98 : 60,
+          rationale: data.plan.reasoning || "Generated AI plan."
+        };
+        setPlan(mappedPlan);
       }
       
     } catch (err) {
@@ -71,19 +100,25 @@ export default function AIPlannerModal({ onClose, contextData, onTaskCreated }) 
   const handleApprove = async () => {
     setApproving(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/approve`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/plan/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          plan,
-          sessionId
+          sessionId,
+          planVersionId: sessionId,
+          projectId: contextData?.projectId,
+          supervisorId: contextData?.assignedWorkerId,
+          activities: plan?.scheduleSteps || []
         })
       });
 
-      if (!res.ok) throw new Error('Failed to approve plan');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to approve plan');
+      }
       const data = await res.json();
       
       if (data.success) {
@@ -94,7 +129,7 @@ export default function AIPlannerModal({ onClose, contextData, onTaskCreated }) 
       }
     } catch (err) {
       console.error(err);
-      setError('Failed to automate task execution.');
+      setError(err.message || 'Failed to automate task execution.');
     } finally {
       setApproving(false);
     }

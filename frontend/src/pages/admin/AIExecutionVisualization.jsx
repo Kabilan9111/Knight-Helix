@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { 
-  BrainCircuit, Activity, Calendar, 
+import {
+  BrainCircuit, Activity, Calendar,
   Download, Play, CheckCircle2,
   ChevronRight, Info
 } from 'lucide-react';
@@ -34,7 +34,7 @@ export default function AIExecutionVisualization() {
     setViewState('analyzing');
     setLoadingPhase(0);
     setError(null);
-    
+
     // Start fetching data in background
     const fetchPromise = fetchData();
 
@@ -43,7 +43,7 @@ export default function AIExecutionVisualization() {
       setLoadingPhase(i);
       await new Promise(r => setTimeout(r, i === 0 ? 1500 : 800));
     }
-    
+
     const success = await fetchPromise;
     if (success) {
       setViewState('results');
@@ -59,10 +59,10 @@ export default function AIExecutionVisualization() {
         window.location.href = '/login';
         return false;
       }
-      
+
       const headers = { 'Authorization': `Bearer ${token}` };
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
+
       let formattedTeamId = 'civil-a'; // fallback
       if (selectedTeam === 'Civil Team A') formattedTeamId = 'civil-a';
       else if (selectedTeam === 'Mechanical Team B') formattedTeamId = 'mechanical-b';
@@ -70,7 +70,7 @@ export default function AIExecutionVisualization() {
       else if (selectedTeam === 'Piping Team D') formattedTeamId = 'piping-d';
 
       const response = await fetch(`${baseUrl}/api/visualization/team/${formattedTeamId}`, { headers });
-      
+
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -86,7 +86,7 @@ export default function AIExecutionVisualization() {
         const text = await response.text();
         throw new Error(`API returned non-JSON: ${text.slice(0, 100)}`);
       }
-      
+
       const result = await response.json();
       setData(result);
       setError(null);
@@ -107,7 +107,7 @@ export default function AIExecutionVisualization() {
           if (data) fetchData();
         }
       };
-      
+
       socket.on('task_updated', handleTaskUpdate);
 
       return () => {
@@ -120,7 +120,7 @@ export default function AIExecutionVisualization() {
   if (viewState === 'analyzing') {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-[#0a0f1c] text-white">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
@@ -130,7 +130,7 @@ export default function AIExecutionVisualization() {
           <h2 className="text-2xl font-bold tracking-[0.2em] text-[var(--accent-primary-hover)] mb-8 text-center">
             {loadingMessages[0]}
           </h2>
-          
+
           <div className="h-8 text-center text-[var(--text-secondary)]">
             <AnimatePresence mode="wait">
               {loadingPhase > 0 && (
@@ -146,9 +146,9 @@ export default function AIExecutionVisualization() {
               )}
             </AnimatePresence>
           </div>
-          
+
           <div className="w-64 h-1 bg-white/10 rounded-full mt-6 overflow-hidden">
-            <motion.div 
+            <motion.div
               className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
               initial={{ width: "0%" }}
               animate={{ width: `${(loadingPhase / (loadingMessages.length - 1)) * 100}%` }}
@@ -173,17 +173,17 @@ export default function AIExecutionVisualization() {
             Scenario-based prediction of task completion using historical productivity and live execution data.
           </p>
         </div>
-        
+
         <div className="flex items-center gap-6 text-sm">
           {viewState === 'results' && (
             <div className="flex items-center gap-3 mr-4">
-              <button 
+              <button
                 onClick={() => setViewState('selection')}
                 className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition-colors"
               >
                 CHANGE TEAM
               </button>
-              <button 
+              <button
                 onClick={handleVisualize}
                 className="px-3 py-1.5 text-xs font-medium bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded transition-colors"
               >
@@ -195,13 +195,13 @@ export default function AIExecutionVisualization() {
             <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Project</span>
             <span className="font-semibold text-purple-400">RIVERFRONT INFRASTRUCTURE</span>
           </div>
-          
+
           <div className="w-px h-8 bg-white/10"></div>
-          
+
           <div className="flex flex-col items-end">
             <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Data Status</span>
             <div className="flex items-center gap-2">
-              <motion.div 
+              <motion.div
                 animate={livePulse ? { scale: [1, 1.5, 1], opacity: [1, 0.5, 1] } : {}}
                 transition={{ duration: 0.5 }}
                 className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
@@ -209,7 +209,7 @@ export default function AIExecutionVisualization() {
               <span className="font-medium text-cyan-400">LIVE</span>
             </div>
           </div>
-          
+
           <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-medium transition-colors ml-4">
             <Download size={14} /> Export Report
           </button>
@@ -226,27 +226,26 @@ export default function AIExecutionVisualization() {
           <div className="flex flex-col items-center justify-center h-[60vh] relative z-20">
             <div className="bg-[#121a2f] border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-purple-600"></div>
-              
+
               <h3 className="text-lg font-medium text-center mb-6 text-white/90">SELECT TEAM TO ANALYZE</h3>
-              
+
               <div className="flex flex-col gap-3 mb-8">
                 {['Civil Team A', 'Mechanical Team B', 'Electrical Team C', 'Piping Team D'].map(team => (
-                  <button 
+                  <button
                     key={team}
                     onClick={() => setSelectedTeam(team)}
-                    className={`px-4 py-3 rounded-lg text-sm font-medium border text-left transition-all flex items-center justify-between ${
-                      selectedTeam === team 
-                        ? 'bg-purple-900/40 border-purple-500/50 text-white shadow-[0_0_15px_rgba(168,85,247,0.15)]' 
+                    className={`px-4 py-3 rounded-lg text-sm font-medium border text-left transition-all flex items-center justify-between ${selectedTeam === team
+                        ? 'bg-purple-900/40 border-purple-500/50 text-white shadow-[0_0_15px_rgba(168,85,247,0.15)]'
                         : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
-                    }`}
+                      }`}
                   >
                     <span>{team}</span>
                     {selectedTeam === team && <CheckCircle2 size={16} className="text-purple-400" />}
                   </button>
                 ))}
               </div>
-              
-              <button 
+
+              <button
                 onClick={handleVisualize}
                 className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-xl font-bold tracking-widest text-sm shadow-[0_0_20px_rgba(147,51,234,0.3)] transition-all flex items-center justify-center gap-3"
               >
@@ -258,24 +257,24 @@ export default function AIExecutionVisualization() {
           <div className="flex flex-col items-center justify-center h-[60vh] relative z-20">
             <div className="bg-[#121a2f] border border-red-500/20 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
-              
+
               <h3 className="text-lg font-medium text-center mb-6 text-red-400">EXECUTION ANALYSIS FAILED</h3>
-              
+
               <div className="mb-8 text-sm text-gray-300 text-center">
                 <p className="mb-2">Unable to retrieve prediction data from the execution engine.</p>
                 <div className="bg-black/30 p-3 rounded text-xs text-red-300 overflow-hidden text-left font-mono break-all">
                   {error || "Unknown error occurred"}
                 </div>
               </div>
-              
+
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setViewState('selection')}
                   className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-bold tracking-widest text-xs transition-all"
                 >
                   CHANGE TEAM
                 </button>
-                <button 
+                <button
                   onClick={handleVisualize}
                   className="flex-1 py-3 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-xl font-bold tracking-widest text-xs transition-all"
                 >
@@ -286,7 +285,7 @@ export default function AIExecutionVisualization() {
           </div>
         ) : viewState === 'results' && data ? (
           /* Main Workspace */
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col gap-8 max-w-7xl mx-auto relative z-20"
@@ -296,11 +295,11 @@ export default function AIExecutionVisualization() {
               <div className="col-span-4 grid grid-cols-4 gap-4">
                 {[
                   { label: "TOTAL TASKS", value: data.summary.totalTasks, color: "text-white" },
-                  { label: "COMPLETED", value: data.summary.completed, sub: `${Math.round(data.summary.completed/data.summary.totalTasks*100)}%`, color: "text-emerald-400" },
-                  { label: "IN PROGRESS", value: data.summary.inProgress, sub: `${Math.round(data.summary.inProgress/data.summary.totalTasks*100)}%`, color: "text-amber-400" },
-                  { label: "REMAINING", value: data.summary.remaining, sub: `${Math.round(data.summary.remaining/data.summary.totalTasks*100)}%`, color: "text-blue-400" },
+                  { label: "COMPLETED", value: data.summary.completed, sub: `${Math.round(data.summary.completed / data.summary.totalTasks * 100)}%`, color: "text-emerald-400" },
+                  { label: "IN PROGRESS", value: data.summary.inProgress, sub: `${Math.round(data.summary.inProgress / data.summary.totalTasks * 100)}%`, color: "text-amber-400" },
+                  { label: "REMAINING", value: data.summary.remaining, sub: `${Math.round(data.summary.remaining / data.summary.totalTasks * 100)}%`, color: "text-blue-400" },
                 ].map((stat, i) => (
-                  <motion.div 
+                  <motion.div
                     key={stat.label}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -328,17 +327,17 @@ export default function AIExecutionVisualization() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Radial Chart Graphic representation */}
                 <div className="relative w-24 h-24 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.1)" strokeWidth="6" fill="none" />
-                    <motion.circle 
-                      cx="48" cy="48" r="40" 
-                      stroke="url(#purpleGradient)" 
-                      strokeWidth="6" 
-                      fill="none" 
-                      strokeDasharray="251.2" 
+                    <motion.circle
+                      cx="48" cy="48" r="40"
+                      stroke="url(#purpleGradient)"
+                      strokeWidth="6"
+                      fill="none"
+                      strokeDasharray="251.2"
                       initial={{ strokeDashoffset: 251.2 }}
                       animate={{ strokeDashoffset: 251.2 - (251.2 * data.summary.teamProductivity / 100) }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
@@ -363,17 +362,17 @@ export default function AIExecutionVisualization() {
               </h2>
               <div className="grid grid-cols-3 gap-6">
                 {[
-                  { 
-                    id: 'slow', data: data.scenarios.slow, 
-                    colors: { bg: 'from-red-900/20 to-transparent', border: 'border-red-500/30', accent: 'text-red-400', glow: 'shadow-[0_0_30px_rgba(239,68,68,0.1)]' } 
+                  {
+                    id: 'slow', data: data.scenarios.slow,
+                    colors: { bg: 'from-red-900/20 to-transparent', border: 'border-red-500/30', accent: 'text-red-400', glow: 'shadow-[0_0_30px_rgba(239,68,68,0.1)]' }
                   },
-                  { 
-                    id: 'baseline', data: data.scenarios.baseline, 
-                    colors: { bg: 'from-amber-900/20 to-transparent', border: 'border-amber-500/30', accent: 'text-amber-400', glow: 'shadow-[0_0_30px_rgba(245,158,11,0.1)]' } 
+                  {
+                    id: 'baseline', data: data.scenarios.baseline,
+                    colors: { bg: 'from-amber-900/20 to-transparent', border: 'border-amber-500/30', accent: 'text-amber-400', glow: 'shadow-[0_0_30px_rgba(245,158,11,0.1)]' }
                   },
-                  { 
-                    id: 'fast', data: data.scenarios.fast, 
-                    colors: { bg: 'from-emerald-900/20 to-transparent', border: 'border-emerald-500/30', accent: 'text-emerald-400', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.1)]' } 
+                  {
+                    id: 'fast', data: data.scenarios.fast,
+                    colors: { bg: 'from-emerald-900/20 to-transparent', border: 'border-emerald-500/30', accent: 'text-emerald-400', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.1)]' }
                   }
                 ].map((scenario, i) => (
                   <motion.div
@@ -387,7 +386,7 @@ export default function AIExecutionVisualization() {
                     {activeScenario === scenario.id && (
                       <div className={`absolute top-0 left-0 w-full h-1 bg-current ${scenario.colors.accent}`}></div>
                     )}
-                    
+
                     <div className="flex justify-between items-start mb-6">
                       <h3 className="text-sm font-bold tracking-wider">{scenario.data.label}</h3>
                       <span className={`px-2 py-1 rounded text-[10px] font-bold bg-white/10 ${scenario.colors.accent}`}>
@@ -403,7 +402,7 @@ export default function AIExecutionVisualization() {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-400">Date</span>
-                        <span className="font-medium text-white flex items-center gap-1"><Calendar size={12}/> {scenario.data.estimatedCompletionDate}</span>
+                        <span className="font-medium text-white flex items-center gap-1"><Calendar size={12} /> {scenario.data.estimatedCompletionDate}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-400">Delay Risk</span>
@@ -425,7 +424,7 @@ export default function AIExecutionVisualization() {
               <div className="col-span-7 bg-[#121a2f]/80 border border-white/5 rounded-xl backdrop-blur-sm overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/20">
                   <h2 className="text-sm font-semibold tracking-wide flex items-center gap-2">
-                    <Info size={16} className="text-blue-400"/> TASK-BY-TASK FORECAST
+                    <Info size={16} className="text-blue-400" /> TASK-BY-TASK FORECAST
                   </h2>
                 </div>
                 <div className="overflow-x-auto">
@@ -441,8 +440,8 @@ export default function AIExecutionVisualization() {
                     </thead>
                     <tbody>
                       {data.tasks.map((task, idx) => (
-                        <tr 
-                          key={task.id} 
+                        <tr
+                          key={task.id}
                           onClick={() => setSelectedTask(task)}
                           className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedTask?.id === task.id ? 'bg-white/10' : ''}`}
                         >
@@ -452,7 +451,7 @@ export default function AIExecutionVisualization() {
                             <div className="flex items-center gap-2">
                               <span className="w-8">{task.currentProgress}%</span>
                               <div className="w-16 h-1.5 bg-black/50 rounded-full overflow-hidden">
-                                <motion.div 
+                                <motion.div
                                   className={`h-full ${task.currentProgress === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
                                   initial={{ width: 0 }}
                                   animate={{ width: `${task.currentProgress}%` }}
@@ -479,11 +478,10 @@ export default function AIExecutionVisualization() {
                             )}
                           </td>
                           <td className="p-3 text-right">
-                            <span className={`px-2 py-1 rounded text-[10px] font-medium ${
-                              task.currentProgress === 100 ? 'bg-emerald-500/20 text-emerald-400' : 
-                              task.currentProgress > 0 ? 'bg-amber-500/20 text-amber-400' : 
-                              'bg-gray-500/20 text-gray-400'
-                            }`}>
+                            <span className={`px-2 py-1 rounded text-[10px] font-medium ${task.currentProgress === 100 ? 'bg-emerald-500/20 text-emerald-400' :
+                                task.currentProgress > 0 ? 'bg-amber-500/20 text-amber-400' :
+                                  'bg-gray-500/20 text-gray-400'
+                              }`}>
                               {task.currentProgress === 100 ? 'Completed' : task.currentProgress > 0 ? 'In Progress' : 'Pending'}
                             </span>
                           </td>
@@ -496,7 +494,7 @@ export default function AIExecutionVisualization() {
 
               {/* Animated Gantt / Future Curves */}
               <div className="col-span-5 flex flex-col gap-6">
-                
+
                 {/* Future Curves Graph */}
                 <div className="bg-[#121a2f]/80 border border-white/5 rounded-xl backdrop-blur-sm p-5 h-64 flex flex-col">
                   <h2 className="text-xs text-gray-400 uppercase tracking-widest mb-4">PRODUCTIVITY TREND & PROJECTION</h2>
@@ -506,11 +504,11 @@ export default function AIExecutionVisualization() {
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis dataKey="day" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                         <YAxis domain={[50, 100]} tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
-                        <Tooltip 
+                        <Tooltip
                           contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                           itemStyle={{ fontSize: '12px' }}
                         />
-                        <Line type="monotone" dataKey="history" stroke="#3b82f6" strokeWidth={2} dot={{r:3}} />
+                        <Line type="monotone" dataKey="history" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
                         <Line type="monotone" dataKey="fast" stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="5 5" strokeOpacity={activeScenario === 'fast' ? 1 : 0.3} />
                         <Line type="monotone" dataKey="baseline" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" strokeOpacity={activeScenario === 'baseline' ? 1 : 0.3} />
                         <Line type="monotone" dataKey="slow" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" strokeOpacity={activeScenario === 'slow' ? 1 : 0.3} />
@@ -527,11 +525,11 @@ export default function AIExecutionVisualization() {
                       <BrainCircuit size={100} />
                     </div>
                     <h2 className="text-xs text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <BrainCircuit size={14} className="text-purple-400"/> AI INSIGHTS
+                      <BrainCircuit size={14} className="text-purple-400" /> AI INSIGHTS
                     </h2>
                     <ul className="space-y-3 relative z-10 overflow-y-auto custom-scrollbar pr-2 flex-1">
                       {data.insights.map((insight, i) => (
-                        <motion.li 
+                        <motion.li
                           key={`insight-${i}`}
                           initial={{ opacity: 0, x: 20 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -548,11 +546,11 @@ export default function AIExecutionVisualization() {
                   {/* Recommendations Panel */}
                   <div className="bg-gradient-to-br from-[#121a2f] to-blue-900/10 border border-blue-500/20 rounded-xl backdrop-blur-sm p-5 flex-1 relative overflow-hidden flex flex-col">
                     <h2 className="text-xs text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <CheckCircle2 size={14} className="text-blue-400"/> RECOMMENDATIONS
+                      <CheckCircle2 size={14} className="text-blue-400" /> RECOMMENDATIONS
                     </h2>
                     <ul className="space-y-3 relative z-10 overflow-y-auto custom-scrollbar pr-2 flex-1">
                       {data.recommendations.map((rec, i) => (
-                        <motion.li 
+                        <motion.li
                           key={`rec-${i}`}
                           initial={{ opacity: 0, x: 20 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -591,15 +589,14 @@ export default function AIExecutionVisualization() {
                         <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">ACTIVITY DETAILS</div>
                         <h2 className="text-xl font-bold text-white">{selectedTask.name}</h2>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        selectedTask.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-400' : 
-                        selectedTask.status === 'In Progress' ? 'bg-amber-500/20 text-amber-400' : 
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${selectedTask.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-400' :
+                          selectedTask.status === 'In Progress' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-gray-500/20 text-gray-400'
+                        }`}>
                         {selectedTask.status}
                       </span>
                     </div>
-                    
+
                     <div className="p-6">
                       <div className="grid grid-cols-2 gap-6 mb-8">
                         <div>
@@ -618,7 +615,7 @@ export default function AIExecutionVisualization() {
                       </div>
 
                       <h3 className="text-xs text-gray-400 uppercase tracking-widest mb-4">AI PREDICTION SCENARIOS</h3>
-                      
+
                       <div className="space-y-3">
                         <div className="flex items-center p-3 rounded-lg bg-red-900/10 border border-red-500/20">
                           <div className="w-32 text-xs font-bold text-red-400">SLOWDOWN</div>
@@ -647,7 +644,7 @@ export default function AIExecutionVisualization() {
                 </motion.div>
               )}
             </AnimatePresence>
-            
+
           </motion.div>
         ) : null}
       </div>

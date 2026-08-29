@@ -66,7 +66,7 @@ app.post('/api/auth/login', (req, res) => {
   const { email_mobile, password } = req.body;
   const adminUser = process.env.MOCK_ADMIN_USER || 'admin';
   const adminPass = process.env.MOCK_ADMIN_PASS || 'admin123';
-  
+
   const ownerUser = process.env.MOCK_OWNER_USER || 'owner';
   const ownerPass = process.env.MOCK_OWNER_PASS || 'owner123';
 
@@ -75,13 +75,13 @@ app.post('/api/auth/login', (req, res) => {
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '12h' });
     return res.json({ token, user: userPayload });
   }
-  
+
   if (email_mobile === ownerUser && password === ownerPass) {
     const userPayload = { id: 'owner-1', role: 'OWNER', name: 'Owner Executive' };
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '12h' });
     return res.json({ token, user: userPayload });
   }
-  
+
   res.status(401).json({ error: 'Invalid username or password.' });
 });
 
@@ -108,7 +108,7 @@ app.post('/api/auth/worker/register', (req, res) => {
     INSERT INTO users (id, name, email_mobile, password, role, gender, age)
     VALUES (?, ?, ?, ?, 'WORKER', ?, ?)
   `);
-  
+
   const insertWorker = db.prepare(`
     INSERT INTO workers (workerId, userId, name, mobile, gender, age)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -176,10 +176,10 @@ app.get('/api/workers', authenticateToken, (req, res) => {
 app.get('/api/tasks', authenticateToken, (req, res) => {
   const { workerId } = req.query;
   let tasks;
-  
+
   if (workerId && req.user.role === 'WORKER') {
     // Worker sees only their tasks
-    if (req.user.workerId !== workerId) return res.status(403).json({error: 'Cannot access other worker tasks'});
+    if (req.user.workerId !== workerId) return res.status(403).json({ error: 'Cannot access other worker tasks' });
     tasks = db.prepare(`
       SELECT t.*, p.name as projectName, w.name as workerName 
       FROM tasks t 
@@ -198,7 +198,7 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
   } else {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
-  
+
   res.json(tasks);
 });
 
@@ -220,7 +220,7 @@ app.get('/api/tasks/:id/details', authenticateToken, (req, res) => {
   }
 
   const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ? ORDER BY activityNumber ASC').all(id);
-  
+
   const verifications = db.prepare(`
     SELECT v.*, e.imageBase64, e.description, e.timestamp as evidenceTime 
     FROM ai_evidence_verifications v
@@ -238,18 +238,18 @@ app.get('/api/tasks/:id/details', authenticateToken, (req, res) => {
 
 app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
   const { title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate } = req.body;
-  const taskId = `TASK-${Math.floor(Math.random()*10000)}`;
-  
+  const taskId = `TASK-${Math.floor(Math.random() * 10000)}`;
+
   const insert = db.prepare(`
     INSERT INTO tasks (taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate, status, progress)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ASSIGNED', 0)
   `);
-  
+
   try {
     insert.run(taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate);
     io.emit('task_created', { taskId, assignedWorkerId }); // Broadcast creation
     res.json({ success: true, taskId });
-  } catch(err) {
+  } catch (err) {
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -258,7 +258,7 @@ app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
 app.patch('/api/tasks/:id/status', authenticateToken, requireRole('WORKER'), (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  
+
   const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
   if (!task) {
     return res.status(404).json({ error: 'Task not found.' });
@@ -286,7 +286,7 @@ app.patch('/api/tasks/:id/status', authenticateToken, requireRole('WORKER'), (re
   try {
     db.prepare('UPDATE tasks SET status = ?, progress = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?')
       .run(status, progress, id);
-      
+
     // Log the transition
     db.prepare(`
       INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
@@ -314,17 +314,17 @@ app.post('/api/tasks/:id/evidence', authenticateToken, requireRole('WORKER'), (r
   const { id } = req.params;
   const description = req.body.description || '';
   const workerId = req.user.workerId;
-  
+
   if (!req.file && !description.trim()) {
     return res.status(400).json({ error: 'Either an image or a description must be provided.' });
   }
-  
+
   let imageBase64 = null;
   if (req.file) {
     // Convert memory buffer back to the base64 format expected by the existing agent
     imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
   }
-  
+
   const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
   if (!task || task.assignedWorkerId !== workerId) {
     return res.status(403).json({ error: 'Unauthorized.' });
@@ -361,7 +361,7 @@ app.post('/api/tasks/:id/verify-field', authenticateToken, requireRole('WORKER')
   const { id } = req.params;
   const workerId = req.user.workerId;
   const { activityId, distance, estimatedArea, gpsAccuracy, startedAt, stoppedAt, coordinates, description } = req.body;
-  
+
   if (!distance || distance < 0) return res.status(400).json({ error: 'Invalid distance.' });
 
   const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
@@ -387,7 +387,7 @@ app.post('/api/tasks/:id/verify-field', authenticateToken, requireRole('WORKER')
     };
 
     const aiResult = await processFieldVerification(id, workerId, fieldData, io);
-    
+
     // Save the session as PENDING_APPROVAL
     const verificationId = `FVERIF-${Date.now()}`;
     db.prepare(`
@@ -438,14 +438,14 @@ app.post('/api/field-verifications/:id/approve', authenticateToken, requireRole(
       // 3. Recalculate Global Task Progress
       const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ?').all(verification.taskId);
       let overallProgress = aiResult.recommendedProgress;
-      
+
       if (activities.length > 0) {
         const total = activities.reduce((sum, act) => sum + act.progress, 0);
         overallProgress = Math.round(total / activities.length);
       }
 
       let newStatus = overallProgress >= 100 ? 'SUBMITTED' : 'IN_PROGRESS';
-      
+
       db.prepare(`UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?`).run(
         overallProgress, newStatus, verification.taskId
       );
@@ -498,7 +498,7 @@ app.post('/api/location/update', authenticateToken, requireRole('WORKER'), (req,
         timestamp = excluded.timestamp,
         status = 'LIVE'
     `);
-    
+
     stmt.run(workerId, name, latitude, longitude, accuracy, timestamp);
 
     // Also append to history
@@ -510,7 +510,7 @@ app.post('/api/location/update', authenticateToken, requireRole('WORKER'), (req,
 
     const locationData = { workerId, workerName: name, latitude, longitude, accuracy, timestamp, status: 'LIVE' };
     io.to('admin_room').emit('worker_location_updated', locationData);
-    
+
     res.json({ success: true, location: locationData });
   } catch (err) {
     console.error('Location update error:', err);
@@ -524,7 +524,7 @@ app.post('/api/location/stop', authenticateToken, requireRole('WORKER'), (req, r
   try {
     const timestamp = new Date().toISOString();
     db.prepare(`UPDATE worker_locations SET status = 'OFFLINE', timestamp = ? WHERE workerId = ?`).run(timestamp, workerId);
-    
+
     io.to('admin_room').emit('worker_location_stopped', { workerId, status: 'OFFLINE', timestamp });
     res.json({ success: true, status: 'OFFLINE' });
   } catch (err) {
@@ -566,14 +566,14 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log(`[SOCKET] User connected: ${socket.id} (${socket.user.role})`);
-  
+
   if (socket.user.role === 'WORKER') {
     socket.join(`worker_${socket.user.workerId}`);
-    
+
     socket.on('worker_location_update', (payload) => {
       const { workerId, name } = socket.user;
       const { latitude, longitude, accuracy, timestamp } = payload;
-      
+
       try {
         db.prepare(`
           INSERT INTO worker_locations (workerId, workerName, latitude, longitude, accuracy, timestamp, status)

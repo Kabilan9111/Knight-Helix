@@ -124,7 +124,7 @@ export default function WorkerDashboard() {
       {/* Task Filters */}
       <div className="flex gap-2 mb-6 border-b border-[var(--border-medium)] pb-4">
         {['All', 'Assigned', 'In Progress', 'Submitted', 'Completed'].map(f => (
-          <button 
+          <button
             key={f}
             onClick={() => setFilter(f)}
             className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${filter === f ? 'bg-[var(--text-primary)] text-white' : 'bg-white text-[var(--text-secondary)] border border-[var(--border-medium)] hover:bg-[var(--bg-surface-2)]'}`}
@@ -144,7 +144,7 @@ export default function WorkerDashboard() {
           </div>
         ) : filteredTasks.map(task => (
           <div key={task.taskId} className="bg-white rounded-xl border border-[var(--border-medium)] p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row gap-6 justify-between items-center group">
-            
+
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${getStatusBadge(task.status)}`}>
@@ -159,13 +159,13 @@ export default function WorkerDashboard() {
                 {task.taskId} • {task.projectName}
               </div>
               <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)] font-medium">
-                <span className="flex items-center gap-1.5"><MapPin size={14}/> {task.site}</span>
-                <span className="flex items-center gap-1.5"><Calendar size={14}/> Due: {task.dueDate}</span>
+                <span className="flex items-center gap-1.5"><MapPin size={14} /> {task.site}</span>
+                <span className="flex items-center gap-1.5"><Calendar size={14} /> Due: {task.dueDate}</span>
               </div>
             </div>
 
             <div>
-              <button 
+              <button
                 onClick={() => setSelectedTask(task)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[var(--border-strong)] text-[var(--text-primary)] font-bold text-sm rounded-lg hover:bg-[var(--bg-surface-2)] hover:border-[var(--text-primary)] transition-all"
               >
@@ -178,9 +178,9 @@ export default function WorkerDashboard() {
       </div>
 
       {selectedTask && (
-        <TaskDetailsModal 
-          task={selectedTask} 
-          onClose={() => setSelectedTask(null)} 
+        <TaskDetailsModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
           onUpdate={fetchTasks}
         />
       )}

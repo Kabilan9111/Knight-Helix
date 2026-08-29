@@ -15,7 +15,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${task.taskId}/status`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -80,7 +80,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           canvas.toBlob((blob) => {
             resolve(new File([blob], file.name, {
               type: 'image/jpeg',
@@ -98,7 +98,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
     try {
       const formData = new FormData();
       if (evidenceDesc) formData.append('description', evidenceDesc);
-      
+
       if (evidenceFile) {
         const compressedFile = await compressImage(evidenceFile);
         formData.append('image', compressedFile);
@@ -106,14 +106,14 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
 
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${task.taskId}/evidence`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`
           // Note: Do NOT set Content-Type header when sending FormData.
           // The browser sets it automatically with the correct boundary.
         },
         body: formData
       });
-      
+
       if (res.ok) {
         onUpdate();
         setShowEvidenceForm(false);
@@ -138,23 +138,23 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
   };
 
   // Convert old statuses to new for UI purposes if needed
-  const normalizedStatus = (task.status === 'Pending') ? 'ASSIGNED' : 
-                           (task.status === 'In Progress') ? 'IN_PROGRESS' : 
-                           (task.status === 'Pending Verification') ? 'SUBMITTED' : task.status;
+  const normalizedStatus = (task.status === 'Pending') ? 'ASSIGNED' :
+    (task.status === 'In Progress') ? 'IN_PROGRESS' :
+      (task.status === 'Pending Verification') ? 'SUBMITTED' : task.status;
 
   const currentStep = normalizedStatus === 'ASSIGNED' ? 1 :
-                      normalizedStatus === 'IN_PROGRESS' ? 2 :
-                      normalizedStatus === 'SUBMITTED' ? 3 : 4;
+    normalizedStatus === 'IN_PROGRESS' ? 2 :
+      normalizedStatus === 'SUBMITTED' ? 3 : 4;
 
   if (showEvidenceForm) {
     return (
-      <FieldVerificationWorkspace 
-        task={task} 
-        onClose={() => setShowEvidenceForm(false)} 
+      <FieldVerificationWorkspace
+        task={task}
+        onClose={() => setShowEvidenceForm(false)}
         onVerified={() => {
           setShowEvidenceForm(false);
           onUpdate();
-        }} 
+        }}
       />
     );
   }
@@ -162,7 +162,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+
         {/* Header */}
         <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex justify-between items-center bg-[var(--bg-surface-2)]">
           <div>
@@ -176,7 +176,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 custom-scrollbar">
-          
+
           <div className="flex items-center gap-3">
             <span className={`text-xs font-bold px-2.5 py-1 rounded-md border uppercase ${getPriorityBadge(task.priority)}`}>
               {task.priority || 'MEDIUM'} PRIORITY
@@ -185,21 +185,21 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
 
           <div className="grid grid-cols-2 gap-6">
             <div className="flex gap-3">
-              <div className="mt-0.5 text-[var(--text-tertiary)]"><MapPin size={18}/></div>
+              <div className="mt-0.5 text-[var(--text-tertiary)]"><MapPin size={18} /></div>
               <div>
                 <div className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-0.5">Location</div>
                 <div className="text-sm font-medium text-[var(--text-primary)]">{task.site}</div>
               </div>
             </div>
             <div className="flex gap-3">
-              <div className="mt-0.5 text-[var(--text-tertiary)]"><Calendar size={18}/></div>
+              <div className="mt-0.5 text-[var(--text-tertiary)]"><Calendar size={18} /></div>
               <div>
                 <div className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-0.5">Timeline</div>
                 <div className="text-sm font-medium text-[var(--text-primary)]">{task.startDate} — {task.dueDate}</div>
               </div>
             </div>
             <div className="flex gap-3 col-span-2">
-              <div className="mt-0.5 text-[var(--text-tertiary)]"><AlignLeft size={18}/></div>
+              <div className="mt-0.5 text-[var(--text-tertiary)]"><AlignLeft size={18} /></div>
               <div>
                 <div className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Execution Instructions</div>
                 <div className="text-sm text-[var(--text-primary)] leading-relaxed bg-[var(--bg-surface-2)] p-4 rounded-lg border border-[var(--border-subtle)]">
@@ -215,7 +215,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
             <div className="flex items-center justify-between relative">
               <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1 bg-[var(--border-medium)] z-0 rounded-full"></div>
               <div className="absolute left-4 top-1/2 -translate-y-1/2 h-1 bg-blue-500 z-0 rounded-full transition-all duration-500" style={{ width: currentStep === 1 ? '0%' : currentStep === 2 ? '50%' : '100%' }}></div>
-              
+
               <div className="relative z-10 flex flex-col items-center gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 ${currentStep >= 1 ? 'bg-blue-500 text-white border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.4)]' : 'bg-white text-[var(--text-tertiary)] border-[var(--border-medium)]'}`}>1</div>
                 <span className={`text-[10px] font-bold uppercase ${currentStep >= 1 ? 'text-blue-600' : 'text-[var(--text-tertiary)]'}`}>Assigned</span>
@@ -239,7 +239,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
               </div>
               <div className="relative z-10">
                 <div className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <ShieldCheck size={14}/> AI Verified Progress
+                  <ShieldCheck size={14} /> AI Verified Progress
                 </div>
                 <div className="flex items-end gap-3 mb-3">
                   <div className="text-4xl font-black text-indigo-900 leading-none">{task.progress}%</div>
@@ -258,9 +258,9 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
 
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-2)] flex justify-end gap-3">
-          
+
           {normalizedStatus === 'ASSIGNED' && (
-            <button 
+            <button
               disabled={updating}
               onClick={() => handleStatusUpdate('IN_PROGRESS')}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2 disabled:opacity-50"
@@ -270,7 +270,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
           )}
 
           {normalizedStatus === 'IN_PROGRESS' && !showEvidenceForm && (
-            <button 
+            <button
               onClick={() => setShowEvidenceForm(true)}
               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2"
             >
@@ -283,7 +283,7 @@ export default function TaskDetailsModal({ task, onClose, onUpdate }) {
               <CheckCircle2 size={18} /> Execution Submitted
             </div>
           )}
-          
+
         </div>
       </div>
     </div>
