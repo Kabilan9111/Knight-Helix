@@ -32,6 +32,7 @@ export default function Sidebar() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const currentFilter = searchParams.get('filter') || 'all';
+  const [isTasksExpanded, setIsTasksExpanded] = useState(true);
 
   const handleLogout = () => {
     localStorage.removeItem('sanchalan_token');
@@ -50,13 +51,13 @@ export default function Sidebar() {
     </div>
   );
 
-  const NavItem = ({ icon: Icon, label, path, active, badge, children }) => {
+  const NavItem = ({ icon: Icon, label, path, active, badge, children, onClick, isExpanded }) => {
     const isActive = active || location.pathname === path;
     
     return (
       <div className="px-3">
         <button 
-          onClick={() => path && navigate(path)}
+          onClick={onClick || (() => path && navigate(path))}
           className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
             isActive 
               ? 'bg-[var(--accent-primary)] text-white font-medium' 
@@ -72,7 +73,11 @@ export default function Sidebar() {
               {badge}
             </span>
           )}
-          {children && <ChevronDown size={14} className="text-[var(--text-tertiary)]" />}
+          {children && (
+            isExpanded ? 
+            <ChevronDown size={14} className="text-[var(--text-tertiary)]" /> :
+            <ChevronRight size={14} className="text-[var(--text-tertiary)]" />
+          )}
         </button>
       </div>
     );
@@ -113,21 +118,30 @@ export default function Sidebar() {
 
       <NavGroup title="Project Management">
         <NavItem icon={FolderOpen} label="Projects" />
-        <NavItem icon={CheckSquare} label="Tasks">
+        <NavItem 
+          icon={CheckSquare} 
+          label="Tasks" 
+          onClick={() => setIsTasksExpanded(!isTasksExpanded)}
+          isExpanded={isTasksExpanded}
+        >
           true
         </NavItem>
-        <div className="flex flex-col gap-0.5 mb-2">
-          <SubItem label="All Tasks" active={currentFilter === 'all'} onClick={() => navigate('/admin/dashboard?filter=all')} />
-          <SubItem label="Assigned" badge={42} active={currentFilter === 'assigned'} onClick={() => navigate('/admin/dashboard?filter=assigned')} />
-          <SubItem label="In Progress" badge={18} active={currentFilter === 'in-progress'} onClick={() => navigate('/admin/dashboard?filter=in-progress')} />
-          <SubItem label="Pending Verification" badge={7} active={currentFilter === 'pending-verification'} onClick={() => navigate('/admin/dashboard?filter=pending-verification')} />
-          <SubItem label="Completed" badge={96} active={currentFilter === 'completed'} onClick={() => navigate('/admin/dashboard?filter=completed')} />
-        </div>
-        <div className="px-4 mt-2">
-          <button className="w-full flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white py-2 rounded-lg text-sm font-medium shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all">
-            <Plus size={16} /> Assign New Task
-          </button>
-        </div>
+        {isTasksExpanded && (
+          <>
+            <div className="flex flex-col gap-0.5 mb-2 transition-all">
+              <SubItem label="All Tasks" active={currentFilter === 'all'} onClick={() => navigate('/admin/dashboard?filter=all')} />
+              <SubItem label="Assigned" badge={42} active={currentFilter === 'assigned'} onClick={() => navigate('/admin/dashboard?filter=assigned')} />
+              <SubItem label="In Progress" badge={18} active={currentFilter === 'in-progress'} onClick={() => navigate('/admin/dashboard?filter=in-progress')} />
+              <SubItem label="Pending Verification" badge={7} active={currentFilter === 'pending-verification'} onClick={() => navigate('/admin/dashboard?filter=pending-verification')} />
+              <SubItem label="Completed" badge={96} active={currentFilter === 'completed'} onClick={() => navigate('/admin/dashboard?filter=completed')} />
+            </div>
+            <div className="px-4 mt-2 mb-2">
+              <button className="w-full flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white py-2 rounded-lg text-sm font-medium shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all">
+                <Plus size={16} /> Assign New Task
+              </button>
+            </div>
+          </>
+        )}
       </NavGroup>
 
       <NavGroup title="Execution">
