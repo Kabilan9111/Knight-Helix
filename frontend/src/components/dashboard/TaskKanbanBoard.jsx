@@ -77,12 +77,24 @@ export default function TaskKanbanBoard({ tasks }) {
               }).map(task => (
                 <div 
                   key={task.taskId} 
-                  onClick={() => navigate(`/admin/tasks/${task.taskId}`)}
-                  className="bg-white border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden"
+                  onClick={(e) => {
+                    if (col.id !== 'ASSIGNED') {
+                      navigate(`/admin/tasks/${task.taskId}`);
+                    }
+                  }}
+                  className={`bg-white border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm hover:shadow-md transition-all group relative overflow-hidden ${col.id !== 'ASSIGNED' ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex justify-between items-start mb-1 relative z-10">
                     <h4 className="text-sm font-bold text-[var(--text-primary)] leading-tight">{task.title}</h4>
-                    <button className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={(e) => {
+                        if (col.id === 'ASSIGNED') {
+                          e.stopPropagation();
+                          navigate(`/admin/tasks/${task.taskId}`);
+                        }
+                      }}
+                      className={`text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity ${col.id === 'ASSIGNED' ? 'cursor-pointer' : ''}`}
+                    >
                       <MoreVertical size={16} />
                     </button>
                   </div>
@@ -124,7 +136,12 @@ export default function TaskKanbanBoard({ tasks }) {
                   </div>
 
                   {col.id !== 'Completed' && (
-                    <div className="flex justify-end">
+                    <div className={`flex ${col.id === 'ASSIGNED' ? 'justify-between items-center' : 'justify-end'}`}>
+                      {col.id === 'ASSIGNED' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded border text-blue-600 bg-blue-50 border-blue-200 uppercase">
+                          {task.status || 'ASSIGNED'}
+                        </span>
+                      )}
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getPriorityColor(task.priority)}`}>
                         {task.priority || 'Medium'}
                       </span>

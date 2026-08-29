@@ -150,36 +150,51 @@ router.post('/plan/approve', authenticateAdmin, (req, res) => {
       
       const finalActivities = activities || plan.activities;
       
-      if (finalActivities) {
+      if (finalActivities && finalActivities.length > 0) {
+        // Create ONE main task
+        const mainTaskId = `AI-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+        const mainTaskTitle = state.contextData?.title || 'AI Generated Task';
+        const mainStartDate = state.contextData?.startDate || plan.startDate || finalActivities[0].date || finalActivities[0].startDate;
+        const mainEndDate = state.contextData?.dueDate || plan.endDate || finalActivities[finalActivities.length - 1].date || finalActivities[finalActivities.length - 1].endDate;
+        const mainSite = state.contextData?.site || 'Site B';
+
+        db.prepare(`
+          INSERT INTO tasks (taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate, status, progress)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ASSIGNED', 0)
+        `).run(
+          mainTaskId,
+          mainTaskTitle,
+          state.contextData?.description || 'Task scheduled via AI planner.',
+          projectId || state.projectId || 'PROJ-001',
+          mainSite,
+          finalSupervisorId,
+          state.contextData?.priority || 'High',
+          mainStartDate,
+          mainEndDate
+        );
+
+        // Add each step as a sub-task (activity)
+        let activityNum = 1;
         for (const act of finalActivities) {
-          const realTaskId = `AI-${Date.now()}-${Math.floor(Math.random()*10000)}`;
-          const actTitle = act.title || act.description || 'AI Generated Task';
-          // Make sure dates are safely fallback if needed
-          const startDate = act.startDate || act.date || plan.startDate;
-          const endDate = act.endDate || act.dueDate || act.date || plan.endDate;
-          
+          const actId = `ACT-${Date.now()}-${Math.floor(Math.random()*10000)}-${activityNum}`;
+          const actTitle = act.title || act.description || 'Activity ' + activityNum;
+          const actStartDate = act.startDate || act.date || mainStartDate;
+          const actEndDate = act.endDate || act.dueDate || act.date || mainEndDate;
+
           db.prepare(`
-            INSERT INTO tasks (taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate, status, progress)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ASSIGNED', 0)
+            INSERT INTO task_activities (activityId, taskId, activityNumber, name, description, startDate, endDate, status, progress, aiConfidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', 0, 95)
           `).run(
-            realTaskId,
-            actTitle,
-            'AI Generated Task',
-            projectId || state.projectId || 'PROJ-001',
-            'Site B',
-            finalSupervisorId,
-            'High',
-            startDate,
-            endDate
+            actId, mainTaskId, activityNum, actTitle, act.description || actTitle, actStartDate, actEndDate
           );
-          
-          if (finalSupervisorId && io) {
-            // Safely push via Socket.IO so it doesn't cause a rollback on failure
-            try {
-              io.to(`worker_${finalSupervisorId}`).emit('task_created', { taskId: realTaskId, assignedWorkerId: finalSupervisorId });
-            } catch (socketErr) {
-              console.error('Socket notification failed:', socketErr);
-            }
+          activityNum++;
+        }
+
+        if (finalSupervisorId && io) {
+          try {
+            io.to(`worker_${finalSupervisorId}`).emit('task_created', { taskId: mainTaskId, assignedWorkerId: finalSupervisorId });
+          } catch (socketErr) {
+            console.error('Socket notification failed:', socketErr);
           }
         }
       }
