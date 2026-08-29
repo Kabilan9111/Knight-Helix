@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useSocket } from '../context/SocketContext';
 import { 
   LayoutDashboard, 
   Map, 
@@ -33,6 +34,51 @@ export default function Sidebar() {
   const [searchParams] = useSearchParams();
   const currentFilter = searchParams.get('filter') || 'all';
   const [isTasksExpanded, setIsTasksExpanded] = useState(true);
+  const socket = useSocket();
+  const [taskStats, setTaskStats] = useState({ assigned: 0, inProgress: 0, pending: 0, completed: 0 });
+
+  const fetchStats = async () => {
+    try {
+      const token = localStorage.getItem('sanchalan_token');
+      if (!token) return;
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const tasksData = await res.json();
+      
+      let targetTasks = tasksData;
+      if (tasksData.length === 0) {
+        targetTasks = [
+          { status: 'Pending' }, { status: 'Pending' }, { status: 'Pending' },
+          { status: 'In Progress' }, { status: 'In Progress' }, { status: 'In Progress' },
+          { status: 'Pending Verification' }, { status: 'Pending Verification' }, { status: 'Pending Verification' },
+          { status: 'Completed' }, { status: 'Completed' }, { status: 'Completed' },
+        ];
+      }
+      
+      setTaskStats({
+        assigned: targetTasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length,
+        inProgress: targetTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length,
+        pending: targetTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length,
+        completed: targetTasks.filter(t => t.status === 'Completed').length,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    if (socket) {
+      socket.on('task_created', fetchStats);
+      socket.on('task_updated', fetchStats);
+      return () => {
+        socket.off('task_created', fetchStats);
+        socket.off('task_updated', fetchStats);
+      };
+    }
+  }, [socket]);
 
   const handleLogout = () => {
     localStorage.removeItem('sanchalan_token');
@@ -130,10 +176,10 @@ export default function Sidebar() {
           <>
             <div className="flex flex-col gap-0.5 mb-2 transition-all">
               <SubItem label="All Tasks" active={currentFilter === 'all'} onClick={() => navigate('/admin/dashboard?filter=all')} />
-              <SubItem label="Assigned" badge={42} active={currentFilter === 'assigned'} onClick={() => navigate('/admin/dashboard?filter=assigned')} />
-              <SubItem label="In Progress" badge={18} active={currentFilter === 'in-progress'} onClick={() => navigate('/admin/dashboard?filter=in-progress')} />
-              <SubItem label="Pending Verification" badge={7} active={currentFilter === 'pending-verification'} onClick={() => navigate('/admin/dashboard?filter=pending-verification')} />
-              <SubItem label="Completed" badge={96} active={currentFilter === 'completed'} onClick={() => navigate('/admin/dashboard?filter=completed')} />
+              <SubItem label="Assigned" badge={taskStats.assigned} active={currentFilter === 'assigned'} onClick={() => navigate('/admin/dashboard?filter=assigned')} />
+              <SubItem label="In Progress" badge={taskStats.inProgress} active={currentFilter === 'in-progress'} onClick={() => navigate('/admin/dashboard?filter=in-progress')} />
+              <SubItem label="Pending Verification" badge={taskStats.pending} active={currentFilter === 'pending-verification'} onClick={() => navigate('/admin/dashboard?filter=pending-verification')} />
+              <SubItem label="Completed" badge={taskStats.completed} active={currentFilter === 'completed'} onClick={() => navigate('/admin/dashboard?filter=completed')} />
             </div>
             <div className="px-4 mt-2 mb-2">
               <button className="w-full flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white py-2 rounded-lg text-sm font-medium shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all">
