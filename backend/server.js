@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const db = require('./db');
 const aiPlannerRoutes = require('./routes/aiPlannerRoutes');
+const visualizationRoutes = require('./routes/visualizationRoutes');
 const { processEvidence, processFieldVerification } = require('./services/evidenceVerificationAgent');
 
 const app = express();
@@ -40,7 +41,7 @@ const authenticateToken = (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'Access denied. No token provided.' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token.' });
+    if (err) return res.status(403).json({ error: `Invalid token. Reason: ${err.message}` });
     req.user = user;
     next();
   });
@@ -55,6 +56,8 @@ const requireRole = (...roles) => (req, res, next) => {
   }
   next();
 };
+
+app.use('/api/visualization', authenticateToken, requireRole('ADMIN', 'OWNER', 'SITE_ENGINEER'), visualizationRoutes);
 
 // --- AUTH ROUTES ---
 

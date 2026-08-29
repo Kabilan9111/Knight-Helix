@@ -11,6 +11,7 @@ import WorkerDashboard from './pages/worker/WorkerDashboard';
 
 import AdminTaskDetail from './pages/admin/AdminTaskDetail';
 import AdminEvidenceVerification from './pages/admin/AdminEvidenceVerification';
+import AIExecutionVisualization from './pages/admin/AIExecutionVisualization';
 
 import OwnerShell from './components/owner/OwnerShell';
 import OwnerDashboard from './pages/owner/OwnerDashboard';
@@ -28,6 +29,7 @@ function App() {
             <Route path="weather-map" element={<WeatherMap />} />
             <Route path="live-map" element={<LiveWorkforceMap />} />
             <Route path="evidence-verification" element={<AdminEvidenceVerification />} />
+            <Route path="visualization" element={<AIExecutionVisualization />} />
             <Route path="tasks/:taskId" element={<AdminTaskDetail />} />
             <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
