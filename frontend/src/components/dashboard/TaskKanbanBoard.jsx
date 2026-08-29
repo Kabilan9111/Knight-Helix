@@ -1,14 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, MoreVertical, CheckCircle2, AlertCircle, Clock, CheckSquare, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function TaskKanbanBoard({ tasks }) {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('All Tasks');
+  const tabs = ['My View', 'All Tasks', 'Today', 'This Week', 'Overdue'];
+
+  const displayTasks = tasks.filter(t => {
+    if (activeTab === 'My View') return t.workerName === 'Team Alpha' || t.workerName === 'Team Bravo';
+    if (activeTab === 'Today') return t.startDate?.includes('26 Aug') || t.startDate?.includes('25 Aug');
+    if (activeTab === 'This Week') return true;
+    if (activeTab === 'Overdue') return t.dueDate === 'Waiting' || t.dueDate?.includes('22 Aug');
+    return true; // 'All Tasks'
+  });
+
   const columns = [
-    { id: 'ASSIGNED', label: 'ASSIGNED', color: 'text-blue-500', count: tasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length },
-    { id: 'IN_PROGRESS', label: 'IN PROGRESS', color: 'text-blue-600', count: tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length },
-    { id: 'SUBMITTED', label: 'PENDING VERIFICATION', color: 'text-orange-500', count: tasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length },
-    { id: 'Completed', label: 'COMPLETED', color: 'text-emerald-500', count: tasks.filter(t => t.status === 'Completed').length }
+    { id: 'ASSIGNED', label: 'ASSIGNED', color: 'text-blue-500', count: displayTasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length },
+    { id: 'IN_PROGRESS', label: 'IN PROGRESS', color: 'text-blue-600', count: displayTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length },
+    { id: 'SUBMITTED', label: 'PENDING VERIFICATION', color: 'text-orange-500', count: displayTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length },
+    { id: 'Completed', label: 'COMPLETED', color: 'text-emerald-500', count: displayTasks.filter(t => t.status === 'Completed').length }
   ];
 
   const getPriorityColor = (p) => {
@@ -25,11 +36,15 @@ export default function TaskKanbanBoard({ tasks }) {
         <div className="flex items-center gap-6">
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Task Execution Board</h2>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <button className="text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)] pb-4 -mb-4">My View</button>
-            <button className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors pb-4 -mb-4">All Tasks</button>
-            <button className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors pb-4 -mb-4">Today</button>
-            <button className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors pb-4 -mb-4">This Week</button>
-            <button className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors pb-4 -mb-4">Overdue</button>
+            {tabs.map(tab => (
+              <button 
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-4 -mb-4 transition-colors ${activeTab === tab ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -54,7 +69,7 @@ export default function TaskKanbanBoard({ tasks }) {
             </div>
             
             <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar h-[600px] pb-4">
-              {tasks.filter(t => {
+              {displayTasks.filter(t => {
                 if (col.id === 'SUBMITTED') return t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
                 if (col.id === 'ASSIGNED') return t.status === 'ASSIGNED' || t.status === 'Pending';
                 if (col.id === 'IN_PROGRESS') return t.status === 'IN_PROGRESS' || t.status === 'In Progress';

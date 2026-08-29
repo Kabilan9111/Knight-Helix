@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Map, 
@@ -30,6 +30,8 @@ import {
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const currentFilter = searchParams.get('filter') || 'all';
 
   const handleLogout = () => {
     localStorage.removeItem('sanchalan_token');
@@ -76,11 +78,14 @@ export default function Sidebar() {
     );
   };
 
-  const SubItem = ({ label, badge, active }) => (
-    <button className={`w-full flex items-center justify-between pl-11 pr-4 py-1.5 text-[13px] transition-colors ${active ? 'text-white font-medium' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}>
+  const SubItem = ({ label, badge, active, onClick }) => (
+    <button 
+      onClick={onClick}
+      className={`w-full flex items-center justify-between pl-11 pr-4 py-1.5 text-[13px] transition-colors ${active ? 'text-white font-medium' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+    >
       <span>{label}</span>
       {badge !== undefined && (
-        <span className="text-[10px] font-medium text-[var(--accent-primary)] px-1.5 py-0.5 rounded-md bg-[var(--accent-primary-subtle)]">
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${active ? 'text-white bg-white/20' : 'text-[var(--accent-primary)] bg-[var(--accent-primary-subtle)]'}`}>
           {badge}
         </span>
       )}
@@ -112,11 +117,11 @@ export default function Sidebar() {
           true
         </NavItem>
         <div className="flex flex-col gap-0.5 mb-2">
-          <SubItem label="All Tasks" />
-          <SubItem label="Assigned" badge={42} />
-          <SubItem label="In Progress" badge={18} active />
-          <SubItem label="Pending Verification" badge={7} />
-          <SubItem label="Completed" badge={96} />
+          <SubItem label="All Tasks" active={currentFilter === 'all'} onClick={() => navigate('/admin/dashboard?filter=all')} />
+          <SubItem label="Assigned" badge={42} active={currentFilter === 'assigned'} onClick={() => navigate('/admin/dashboard?filter=assigned')} />
+          <SubItem label="In Progress" badge={18} active={currentFilter === 'in-progress'} onClick={() => navigate('/admin/dashboard?filter=in-progress')} />
+          <SubItem label="Pending Verification" badge={7} active={currentFilter === 'pending-verification'} onClick={() => navigate('/admin/dashboard?filter=pending-verification')} />
+          <SubItem label="Completed" badge={96} active={currentFilter === 'completed'} onClick={() => navigate('/admin/dashboard?filter=completed')} />
         </div>
         <div className="px-4 mt-2">
           <button className="w-full flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white py-2 rounded-lg text-sm font-medium shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all">

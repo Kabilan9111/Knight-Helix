@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import TopHeader from '../components/TopHeader';
 import KpiCard from '../components/dashboard/KpiCard';
 import TaskKanbanBoard from '../components/dashboard/TaskKanbanBoard';
@@ -21,6 +21,8 @@ export default function AdminDashboard() {
   const [aiPlannerContext, setAiPlannerContext] = useState({});
   
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filter = searchParams.get('filter') || 'all';
   const socket = useSocket();
   const token = localStorage.getItem('sanchalan_token');
 
@@ -131,6 +133,15 @@ export default function AdminDashboard() {
   const atRiskTasks = 11; // Dummy static
   const evidenceConfidence = "94.2%"; // Dummy static
 
+  // Apply sidebar filter
+  const filteredTasks = tasks.filter(t => {
+    if (filter === 'assigned') return t.status === 'ASSIGNED' || t.status === 'Pending';
+    if (filter === 'in-progress') return t.status === 'IN_PROGRESS' || t.status === 'In Progress';
+    if (filter === 'pending-verification') return t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
+    if (filter === 'completed') return t.status === 'Completed';
+    return true;
+  });
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <TopHeader />
@@ -175,7 +186,7 @@ export default function AdminDashboard() {
 
         {/* 2 & 3. Task Kanban Board & Assign Task Panel */}
         <div className="flex flex-col xl:flex-row gap-6 h-[720px]">
-          <TaskKanbanBoard tasks={tasks} />
+          <TaskKanbanBoard tasks={filteredTasks} />
           <AssignTaskPanel 
             projects={projects} 
             workers={workers} 
