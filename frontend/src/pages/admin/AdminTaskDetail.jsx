@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext';
+import AdminSpatialVerification from './components/AdminSpatialVerification';
 import { 
   ArrowLeft, Calendar, Clock, MapPin, User, ChevronDown, ChevronUp, 
   CheckCircle2, ShieldCheck, AlertCircle, Eye, Paperclip, FileText, CheckSquare
@@ -142,6 +143,7 @@ export default function AdminTaskDetail() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
   const [expandedActivities, setExpandedActivities] = useState(new Set());
+  const [activeVerification, setActiveVerification] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -309,6 +311,19 @@ export default function AdminTaskDetail() {
         </div>
       </div>
 
+      {activeVerification && (
+        <AdminSpatialVerification
+          task={data.task}
+          activity={data.activities.find(a => a.activityId === activeVerification.matchedActivityId || a.activityId === activeVerification.activityId)}
+          verification={activeVerification}
+          onClose={() => setActiveVerification(null)}
+          onVerified={() => {
+            setActiveVerification(null);
+            fetchData();
+          }}
+        />
+      )}
+
       {/* Main Workspace Two Column Layout */}
       <div className="flex flex-1 overflow-hidden">
         
@@ -442,6 +457,15 @@ export default function AdminTaskDetail() {
                                         </div>
                                       ))}
                                     </div>
+                                    
+                                    {latestVerif && act.status === 'VERIFICATION_PENDING' && (
+                                      <button 
+                                        onClick={() => setActiveVerification(latestVerif)}
+                                        className="mt-4 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-sm flex items-center justify-center gap-2 transition-colors"
+                                      >
+                                        <MapPin size={18} /> VERIFY SPATIALLY
+                                      </button>
+                                    )}
                                   </>
                                 ) : (
                                   <div className="h-full min-h-[150px] flex flex-col items-center justify-center text-gray-400 bg-white rounded-lg border border-dashed border-gray-300 p-6">

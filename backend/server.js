@@ -342,13 +342,52 @@ app.get('/api/admin/verifications/pending', authenticateToken, requireRole('ADMI
 // Admin Queue: Resolve verification
 app.post('/api/admin/verifications/:id/resolve', authenticateToken, requireRole('ADMIN'), (req, res) => {
   const { id } = req.params;
-  const { action, rejectionReason } = req.body;
+  const { action, rejectionReason, spatialData } = req.body;
   const engineerId = req.user.adminId || req.user.username;
 
   try {
-    const evidence = db.prepare('SELECT * FROM worker_evidence WHERE evidenceId = ?').get(id);
+    let evidence = db.prepare('SELECT * FROM worker_evidence WHERE evidenceId = ?').get(id);
+    
+    // If not found by evidenceId, maybe the id is a verificationId
+    if (!evidence) {
+      const v = db.prepare('SELECT * FROM ai_evidence_verifications WHERE verificationId = ?').get(id);
+      if (v && v.evidenceId) {
+        evidence = db.prepare('SELECT * FROM worker_evidence WHERE evidenceId = ?').get(v.evidenceId);
+      }
+    }
+    
     if (!evidence) return res.status(404).json({ error: 'Evidence not found' });
     
+    // Save spatial track if provided
+    if (spatialData && spatialData.coordinates && spatialData.coordinates.length > 0) {
+      const verificationId = `FVERIF-${Date.now()}`;
+      try {
+        db.prepare(`
+          INSERT INTO field_verifications (
+            verificationId, taskId, activityId, engineerId, startedAt, stoppedAt, 
+            coordinates, distance, estimatedArea, gpsAccuracy, status, aiVerificationResult, approvedAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          verificationId, 
+          evidence.taskId, 
+          evidence.activityId, 
+          engineerId, 
+          spatialData.coordinates[0]?.timestamp ? new Date(spatialData.coordinates[0].timestamp).toISOString() : new Date().toISOString(), 
+          spatialData.coordinates[spatialData.coordinates.length-1]?.timestamp ? new Date(spatialData.coordinates[spatialData.coordinates.length-1].timestamp).toISOString() : new Date().toISOString(),
+          JSON.stringify(spatialData.coordinates), 
+          spatialData.distance || 0, 
+          spatialData.estimatedArea || null, 
+          spatialData.gpsAccuracy || 0, 
+          action === 'APPROVE' ? 'APPROVED' : 'REJECTED', 
+          'Admin Manual Verification',
+          action === 'APPROVE' ? new Date().toISOString() : null
+        );
+      } catch (err) {
+        console.error('Failed to save spatial data:', err);
+        // Continue anyway to resolve the evidence
+      }
+    }
+
     if (action === 'APPROVE') {
       const verification = db.prepare('SELECT * FROM ai_evidence_verifications WHERE evidenceId = ?').get(id);
       const newProgress = verification ? verification.completionPercentage : 100;

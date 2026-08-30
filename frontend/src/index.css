@@ -149,4 +149,10 @@
   ::-webkit-scrollbar { @apply w-1.5 h-1.5; }
   ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-[var(--border-strong)] rounded-full hover:bg-[var(--text-tertiary)]; }
+
+  .glowing-path {
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
 }
