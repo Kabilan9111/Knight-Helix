@@ -630,6 +630,43 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: err.message || 'Internal Server Error' });
 });
 
+// --- DEADLINE ENFORCEMENT WORKER ---
+setInterval(() => {
+  try {
+    const activeActivities = db.prepare(`
+      SELECT * FROM task_activities 
+      WHERE status IN ('Pending', 'IN_PROGRESS', 'ASSIGNED') 
+        AND evidenceReceivedAt IS NULL
+    `).all();
+
+    const now = new Date();
+    let hasUpdates = false;
+
+    for (const act of activeActivities) {
+      const targetDateStr = act.endDate || act.startDate;
+      if (!targetDateStr) continue;
+
+      const deadline = new Date(targetDateStr);
+      if (isNaN(deadline.getTime())) continue;
+
+      deadline.setHours(23, 59, 59, 999);
+
+      if (now.getTime() > deadline.getTime()) {
+        console.log(`[DEADLINE WORKER] Activity ${act.activityId} missed deadline (${deadline.toISOString()}). Current time: ${now.toISOString()}`);
+        
+        db.transaction(() => {
+          db.prepare(`UPDATE task_activities SET status = 'MISSED', missedAt = CURRENT_TIMESTAMP WHERE activityId = ?`).run(act.activityId);
+          db.prepare(`UPDATE tasks SET status = 'MISSED', missedAt = CURRENT_TIMESTAMP WHERE taskId = ?`).run(act.taskId);
+        })();
+
+        io.emit('task_updated', { taskId: act.taskId, activityId: act.activityId, status: 'MISSED' });
+      }
+    }
+  } catch (err) {
+    console.error('Deadline worker error:', err);
+  }
+}, 10000);
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

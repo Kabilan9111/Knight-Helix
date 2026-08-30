@@ -127,4 +127,21 @@ db.prepare(`
   )
 `).run();
 
+// Add evidenceReceivedAt and missedAt columns for the execution timer
+try {
+  db.prepare('ALTER TABLE tasks ADD COLUMN evidenceReceivedAt DATETIME').run();
+} catch (err) {}
+
+try {
+  db.prepare('ALTER TABLE tasks ADD COLUMN missedAt DATETIME').run();
+} catch (err) {}
+
+try {
+  db.prepare('ALTER TABLE task_activities ADD COLUMN evidenceReceivedAt DATETIME').run();
+} catch (err) {}
+
+try {
+  db.prepare('ALTER TABLE task_activities ADD COLUMN missedAt DATETIME').run();
+} catch (err) {}
+
 module.exports = db;

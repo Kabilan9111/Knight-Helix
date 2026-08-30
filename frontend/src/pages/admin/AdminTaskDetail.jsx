@@ -17,6 +17,123 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+const LiveExecutionTimer = ({ activities, taskStatus }) => {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    // Update every second
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Find the currently active activity
+  const activeActivity = activities?.find(a => 
+    a.status === 'IN_PROGRESS' || 
+    (a.status === 'Pending' && a.progress < 100) ||
+    a.status === 'SUBMITTED' ||
+    a.status === 'VERIFICATION_PENDING' ||
+    a.status === 'MISSED'
+  ) || activities?.[0]; // fallback
+
+  if (!activeActivity) return null;
+
+  const targetDateStr = activeActivity.endDate || activeActivity.startDate;
+  if (!targetDateStr) return null;
+
+  // Deadline calculation
+  const deadlineDate = new Date(targetDateStr);
+  deadlineDate.setHours(23, 59, 59, 999);
+  const deadlineMs = deadlineDate.getTime();
+  
+  const startDateObj = new Date(activeActivity.startDate || targetDateStr);
+  startDateObj.setHours(0, 0, 0, 0);
+
+  // States
+  const isNotStarted = now < startDateObj.getTime();
+  const hasEvidence = !!activeActivity.evidenceReceivedAt || activeActivity.status === 'SUBMITTED' || activeActivity.status === 'VERIFICATION_PENDING' || activeActivity.status === 'VERIFIED' || activeActivity.status === 'COMPLETED';
+  const isMissed = activeActivity.status === 'MISSED' || taskStatus === 'MISSED';
+  
+  const remainingMs = Math.max(0, deadlineMs - now);
+  const isCritical = remainingMs > 0 && remainingMs <= 3 * 3600 * 1000;
+  
+  // Format HH:MM:SS
+  const formatTime = (ms) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const h = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
+    const m = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+    const s = String(totalSecs % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+
+  const formattedDeadline = `${deadlineDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, 23:59:59`;
+
+  if (isNotStarted) {
+    return null; // Don't show timer if not started
+  }
+
+  if (isMissed) {
+    return (
+      <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm mb-8 flex flex-col items-center justify-center">
+        <h2 className="text-sm font-bold tracking-widest text-red-600 uppercase mb-4 flex items-center gap-2">
+          🔴 TASK MISSED
+        </h2>
+        <p className="text-gray-700 text-sm font-medium mb-4 text-center">
+          Required evidence was not received before the execution deadline.
+        </p>
+        <div className="text-xs font-bold text-gray-500 uppercase">
+          Timer: STOPPED
+        </div>
+      </div>
+    );
+  }
+
+  if (hasEvidence) {
+    const receivedDate = activeActivity.evidenceReceivedAt ? new Date(activeActivity.evidenceReceivedAt + 'Z') : new Date(); // append Z to assume UTC from DB
+    const formattedReceived = `${receivedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, ${receivedDate.toLocaleTimeString('en-GB')}`;
+    
+    return (
+      <div className="bg-white border border-emerald-200 rounded-xl p-6 shadow-sm mb-8 flex flex-col items-center justify-center">
+        <h2 className="text-sm font-bold tracking-widest text-emerald-600 uppercase mb-4 flex items-center gap-2">
+          ✓ EVIDENCE RECEIVED
+        </h2>
+        <div className="text-xl font-black text-[var(--text-primary)] mb-4">
+          VERIFICATION PENDING
+        </div>
+        <div className="flex items-center gap-6 text-xs font-bold text-[var(--text-secondary)] uppercase">
+          <span>Timer: <span className="text-gray-400">STOPPED</span></span>
+          <span>Received: {formattedReceived}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Active / Critical State
+  return (
+    <div className={`bg-white border ${isCritical ? 'border-red-300' : 'border-[var(--border-subtle)]'} rounded-xl p-6 shadow-sm mb-8 flex flex-col items-center justify-center relative overflow-hidden`}>
+      {isCritical && (
+        <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse"></div>
+      )}
+      
+      <h2 className={`text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-2 ${isCritical ? 'text-red-600' : 'text-indigo-600'}`}>
+        {isCritical ? '🔴 CRITICAL DEADLINE' : '🟢 LIVE EXECUTION'}
+      </h2>
+      
+      <div className={`text-5xl font-black tracking-tight mb-2 font-mono ${isCritical ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
+        {formatTime(remainingMs)}
+      </div>
+      
+      <div className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-6">
+        {isCritical ? 'Less than 3 hours remaining' : 'TIME REMAINING'}
+      </div>
+      
+      <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] bg-gray-50 px-4 py-2 rounded-md border border-gray-100">
+        <Clock size={14} className="text-[var(--text-tertiary)]" />
+        <span>Deadline: {formattedDeadline}</span>
+      </div>
+    </div>
+  );
+};
+
 export default function AdminTaskDetail() {
   const { taskId } = useParams();
   const navigate = useNavigate();
@@ -198,6 +315,8 @@ export default function AdminTaskDetail() {
         {/* Left Primary Workspace */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
           
+          <LiveExecutionTimer activities={activities} taskStatus={task.status} />
+
           {/* Task Breakdown Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">

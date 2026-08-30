@@ -162,12 +162,11 @@ WORKER SUBMITTED TEXT: "${description}"
   let updatedActivities = activities;
 
   if (verificationResult.matchedActivityId && verificationResult.evidenceMatch) {
-    let actStatus = 'IN_PROGRESS';
-    if (verificationResult.completionPercentage >= 100) actStatus = 'COMPLETED';
+    let actStatus = 'SUBMITTED';
 
     db.prepare(`
       UPDATE task_activities 
-      SET progress = ?, status = ?, aiConfidence = ? 
+      SET progress = ?, status = ?, aiConfidence = ?, evidenceReceivedAt = CURRENT_TIMESTAMP 
       WHERE activityId = ?
     `).run(verificationResult.completionPercentage, actStatus, verificationResult.confidence, verificationResult.matchedActivityId);
     
@@ -184,15 +183,10 @@ WORKER SUBMITTED TEXT: "${description}"
     overallProgress = verificationResult.completionPercentage;
   }
 
-  let newStatus = task.status;
-  if (overallProgress >= 100) {
-    newStatus = 'SUBMITTED';
-  } else if (overallProgress > 0 && newStatus === 'ASSIGNED') {
-    newStatus = 'IN_PROGRESS';
-  }
+  let newStatus = 'SUBMITTED';
 
   db.prepare(`
-    UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?
+    UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP, evidenceReceivedAt = CURRENT_TIMESTAMP WHERE taskId = ?
   `).run(overallProgress, newStatus, taskId);
 
   db.prepare(`
