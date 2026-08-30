@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext';
 import { ClipboardList, PlayCircle, CheckCircle2, FileCheck, ArrowRight, X, Calendar, MapPin, AlignLeft } from 'lucide-react';
-import TaskDetailsModal from './components/TaskDetailsModal';
 import WorkerLiveLocationCard from './components/WorkerLiveLocationCard';
 import WorkerLiveMap from './components/WorkerLiveMap';
 
 export default function WorkerDashboard() {
   const { user } = useOutletContext();
+  const navigate = useNavigate();
   const socket = useSocket();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState(null);
   const [filter, setFilter] = useState('All');
 
   const fetchTasks = async () => {
@@ -139,8 +138,8 @@ export default function WorkerDashboard() {
         {filteredTasks.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl border border-[var(--border-medium)] border-dashed">
             <CheckCircle2 size={40} className="mx-auto text-[var(--border-strong)] mb-4" />
-            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">No tasks found</h3>
-            <p className="text-sm text-[var(--text-secondary)]">You have no tasks matching this filter.</p>
+            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">No tasks assigned</h3>
+            <p className="text-sm text-[var(--text-secondary)]">You currently have no tasks assigned by a Site Engineer.</p>
           </div>
         ) : filteredTasks.map(task => (
           <div key={task.taskId} className="bg-white rounded-xl border border-[var(--border-medium)] p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row gap-6 justify-between items-center group">
@@ -160,13 +159,14 @@ export default function WorkerDashboard() {
               </div>
               <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)] font-medium">
                 <span className="flex items-center gap-1.5"><MapPin size={14} /> {task.site}</span>
-                <span className="flex items-center gap-1.5"><Calendar size={14} /> Due: {task.dueDate}</span>
+                <span className="flex items-center gap-1.5"><Calendar size={14} /> Execution: {task.startDate} → {task.dueDate}</span>
+                <span className="flex items-center gap-1.5 text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">Assigned by: Site Engineer</span>
               </div>
             </div>
 
             <div>
               <button
-                onClick={() => setSelectedTask(task)}
+                onClick={() => navigate(`/worker/tasks/${task.taskId}`)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[var(--border-strong)] text-[var(--text-primary)] font-bold text-sm rounded-lg hover:bg-[var(--bg-surface-2)] hover:border-[var(--text-primary)] transition-all"
               >
                 VIEW TASK <ArrowRight size={16} className="text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)] transition-colors" />
@@ -176,14 +176,6 @@ export default function WorkerDashboard() {
           </div>
         ))}
       </div>
-
-      {selectedTask && (
-        <TaskDetailsModal
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdate={fetchTasks}
-        />
-      )}
     </div>
   );
 }

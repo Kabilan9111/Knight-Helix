@@ -8,6 +8,7 @@ import LiveWorkforceMap from './pages/admin/LiveWorkforceMap';
 import Login from './pages/Login';
 import WorkerLayout from './pages/worker/WorkerLayout';
 import WorkerDashboard from './pages/worker/WorkerDashboard';
+import WorkerTaskDetail from './pages/worker/WorkerTaskDetail';
 
 import AdminTaskDetail from './pages/admin/AdminTaskDetail';
 import AdminEvidenceVerification from './pages/admin/AdminEvidenceVerification';
@@ -36,6 +37,7 @@ function App() {
           
           <Route path="/worker" element={<WorkerLayout />}>
             <Route path="dashboard" element={<WorkerDashboard />} />
+            <Route path="tasks/:taskId" element={<WorkerTaskDetail />} />
             <Route path="*" element={<Navigate to="/worker/dashboard" replace />} />
           </Route>
           

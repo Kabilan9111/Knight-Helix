@@ -1,0 +1,431 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useSocket } from '../../context/SocketContext';
+import { 
+  ArrowLeft, Calendar, Clock, MapPin, User, ChevronDown, ChevronUp, 
+  CheckCircle2, ShieldCheck, AlertCircle, Eye, Paperclip, FileText, CheckSquare, Navigation
+} from 'lucide-react';
+import FieldVerificationWorkspace from './components/FieldVerificationWorkspace';
+
+const LiveExecutionTimer = ({ activities, taskStatus }) => {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeActivity = activities?.find(a => 
+    a.status === 'IN_PROGRESS' || 
+    (a.status === 'Pending' && a.progress < 100) ||
+    a.status === 'SUBMITTED' ||
+    a.status === 'VERIFICATION_PENDING' ||
+    a.status === 'MISSED'
+  ) || activities?.[0];
+
+  if (!activeActivity) return null;
+
+  const targetDateStr = activeActivity.endDate || activeActivity.startDate;
+  if (!targetDateStr) return null;
+
+  const deadlineDate = new Date(targetDateStr);
+  deadlineDate.setHours(23, 59, 59, 999);
+  const deadlineMs = deadlineDate.getTime();
+  
+  const startDateObj = new Date(activeActivity.startDate || targetDateStr);
+  startDateObj.setHours(0, 0, 0, 0);
+
+  const isNotStarted = now < startDateObj.getTime();
+  const hasEvidence = !!activeActivity.evidenceReceivedAt || activeActivity.status === 'SUBMITTED' || activeActivity.status === 'VERIFICATION_PENDING' || activeActivity.status === 'VERIFIED' || activeActivity.status === 'COMPLETED';
+  const isMissed = activeActivity.status === 'MISSED' || taskStatus === 'MISSED';
+  
+  const remainingMs = Math.max(0, deadlineMs - now);
+  const isCritical = remainingMs > 0 && remainingMs <= 3 * 3600 * 1000;
+  
+  const formatTime = (ms) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const h = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
+    const m = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+    const s = String(totalSecs % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+
+  const formattedDeadline = `${deadlineDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, 23:59:59`;
+
+  if (isNotStarted) return null;
+
+  if (isMissed) {
+    return (
+      <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm mb-8 flex flex-col items-center justify-center">
+        <h2 className="text-sm font-bold tracking-widest text-red-600 uppercase mb-4 flex items-center gap-2">
+          🔴 TASK MISSED
+        </h2>
+        <p className="text-gray-700 text-sm font-medium mb-4 text-center">
+          Required evidence was not received before the execution deadline.
+        </p>
+        <div className="text-xs font-bold text-gray-500 uppercase">
+          Timer: STOPPED
+        </div>
+      </div>
+    );
+  }
+
+  if (hasEvidence) {
+    const receivedDate = activeActivity.evidenceReceivedAt ? new Date(activeActivity.evidenceReceivedAt + 'Z') : new Date();
+    const formattedReceived = `${receivedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, ${receivedDate.toLocaleTimeString('en-GB')}`;
+    
+    return (
+      <div className="bg-white border border-emerald-200 rounded-xl p-6 shadow-sm mb-8 flex flex-col items-center justify-center">
+        <h2 className="text-sm font-bold tracking-widest text-emerald-600 uppercase mb-4 flex items-center gap-2">
+          ✓ EVIDENCE RECEIVED
+        </h2>
+        <div className="text-xl font-black text-[var(--text-primary)] mb-4">
+          VERIFICATION PENDING
+        </div>
+        <div className="flex items-center gap-6 text-xs font-bold text-[var(--text-secondary)] uppercase">
+          <span>Timer: <span className="text-gray-400">STOPPED</span></span>
+          <span>Received: {formattedReceived}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bg-white border ${isCritical ? 'border-red-300' : 'border-[var(--border-subtle)]'} rounded-xl p-6 shadow-sm mb-8 flex flex-col items-center justify-center relative overflow-hidden`}>
+      {isCritical && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse"></div>}
+      <h2 className={`text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-2 ${isCritical ? 'text-red-600' : 'text-indigo-600'}`}>
+        {isCritical ? '🔴 CRITICAL DEADLINE' : '🟢 LIVE EXECUTION'}
+      </h2>
+      <div className={`text-5xl font-black tracking-tight mb-2 font-mono ${isCritical ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
+        {formatTime(remainingMs)}
+      </div>
+      <div className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-6">
+        {isCritical ? 'Less than 3 hours remaining' : 'TIME REMAINING'}
+      </div>
+      <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] bg-gray-50 px-4 py-2 rounded-md border border-gray-100">
+        <Clock size={14} className="text-[var(--text-tertiary)]" />
+        <span>Deadline: {formattedDeadline}</span>
+      </div>
+    </div>
+  );
+};
+
+export default function WorkerTaskDetail() {
+  const { taskId } = useParams();
+  const navigate = useNavigate();
+  const socket = useSocket();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [expandedActivities, setExpandedActivities] = useState(new Set());
+  const [showWorkspace, setShowWorkspace] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('sanchalan_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${taskId}/details`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+        setErrorMsg(null);
+      } else {
+        if (res.status === 401) setErrorMsg("Your session has expired. Please sign in again.");
+        else if (res.status === 403) setErrorMsg("Access restricted. You do not have permission to view this task.");
+        else if (res.status === 404) setErrorMsg("Task not found.");
+        else setErrorMsg("Unable to load task. The server encountered an error.");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Unable to connect to the SANCHALAN server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = (payload) => {
+      if (payload.taskId === taskId) fetchData();
+    };
+    socket.on('task_updated', handleUpdate);
+    socket.on('evidence_verified', handleUpdate);
+    return () => {
+      socket.off('task_updated', handleUpdate);
+      socket.off('evidence_verified', handleUpdate);
+    };
+  }, [socket, taskId]);
+
+  const toggleActivity = (id) => {
+    const newExpanded = new Set(expandedActivities);
+    if (newExpanded.has(id)) newExpanded.delete(id);
+    else newExpanded.add(id);
+    setExpandedActivities(newExpanded);
+  };
+
+  const expandAll = () => {
+    if (data?.activities) {
+      setExpandedActivities(new Set(data.activities.map(a => a.activityId)));
+    }
+  };
+
+  const collapseAll = () => setExpandedActivities(new Set());
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[var(--bg-surface-2)]">
+        <div className="text-[var(--text-secondary)] font-medium flex items-center gap-2">
+          <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          Loading Task Details...
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="p-8 text-center bg-[var(--bg-surface-2)] h-full flex flex-col items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-[var(--border-subtle)] max-w-md w-full">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Error</h2>
+          <p className="text-gray-600 mb-6">{errorMsg}</p>
+          <button 
+            onClick={() => navigate('/worker/dashboard')} 
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium text-sm transition-colors shadow-sm"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || !data.task) return null;
+
+  const { task, activities, verifications } = data;
+
+  if (showWorkspace) {
+    return (
+      <FieldVerificationWorkspace
+        task={task}
+        onClose={() => setShowWorkspace(false)}
+        onVerified={() => {
+          setShowWorkspace(false);
+          fetchData();
+        }}
+      />
+    );
+  }
+
+  const getPriorityBadge = (p) => {
+    if (p === 'High') return 'bg-red-50 text-red-700 border-red-200';
+    if (p === 'Medium') return 'bg-orange-50 text-orange-700 border-orange-200';
+    return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  };
+
+  const getStatusBadge = (s) => {
+    if (s === 'COMPLETED') return 'bg-emerald-500 text-white border-emerald-600';
+    if (s === 'IN_PROGRESS' || s === 'In Progress') return 'bg-indigo-500 text-white border-indigo-600';
+    if (s === 'SUBMITTED' || s === 'Pending Verification') return 'bg-orange-500 text-white border-orange-600';
+    return 'bg-gray-500 text-white border-gray-600';
+  };
+
+  const canSubmitEvidence = task.status === 'IN_PROGRESS' || task.status === 'In Progress' || task.status === 'ASSIGNED';
+
+  return (
+    <div className="flex flex-col h-full bg-[var(--bg-surface-2)] overflow-hidden">
+      {/* Header Bar */}
+      <div className="bg-white border-b border-[var(--border-subtle)] px-6 py-4 flex-shrink-0 z-10 shadow-sm relative">
+        <button 
+          onClick={() => navigate('/worker/dashboard')}
+          className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] hover:text-indigo-600 transition-colors mb-4"
+        >
+          <ArrowLeft size={16} /> Back to Dashboard
+        </button>
+        
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)] leading-none">{task.title} <span className="text-gray-400 font-normal ml-2 text-lg">({task.taskId})</span></h1>
+              <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getPriorityBadge(task.priority)}`}>
+                {task.priority || 'Medium'} PRIORITY
+              </span>
+              <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getStatusBadge(task.status)}`}>
+                {task.status.replace('_', ' ')}
+              </span>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-sm text-[var(--text-secondary)]">
+              <div className="flex items-center gap-1.5 font-medium">
+                <FileText size={16} className="text-indigo-500" />
+                <span className="text-[var(--text-primary)]">Project:</span> {task.projectName || 'Project Alpha'}
+              </div>
+              <div className="flex items-center gap-1.5 font-medium">
+                <MapPin size={16} className="text-red-500" />
+                <span className="text-[var(--text-primary)]">Location:</span> {task.site || 'Site B'}
+              </div>
+              <div className="flex items-center gap-1.5 font-medium">
+                <Calendar size={16} className="text-emerald-500" />
+                <span className="text-[var(--text-primary)]">Timeline:</span> {task.startDate || 'N/A'} — {task.dueDate || 'N/A'}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {canSubmitEvidence && (
+              <button 
+                onClick={() => setShowWorkspace(true)}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
+              >
+                <Navigation size={18} /> Submit Evidence
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Workspace Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* Primary Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 max-w-5xl mx-auto">
+          
+          <LiveExecutionTimer activities={activities} taskStatus={task.status} />
+
+          {/* Task Breakdown Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold tracking-widest text-[var(--text-tertiary)] uppercase flex items-center gap-2">
+                <CheckSquare size={16} /> 
+                Task Breakdown ({activities?.length || 0} Activities)
+              </h2>
+              {activities?.length > 0 && (
+                <div className="flex items-center gap-4 text-sm font-medium text-indigo-600">
+                  <button onClick={expandAll} className="hover:underline">Expand All</button>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={collapseAll} className="hover:underline">Collapse All</button>
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-white rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-sm)] overflow-hidden">
+              {activities && activities.length > 0 ? (
+                <div className="divide-y divide-[var(--border-subtle)]">
+                  {activities.map((act) => {
+                    const isExpanded = expandedActivities.has(act.activityId);
+                    const actVerifications = verifications.filter(v => v.matchedActivityId === act.activityId);
+
+                    return (
+                      <div key={act.activityId} className="flex flex-col transition-colors hover:bg-gray-50/50">
+                        {/* Activity Header Row */}
+                        <div 
+                          onClick={() => toggleActivity(act.activityId)}
+                          className="flex items-center p-4 cursor-pointer gap-4"
+                        >
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 border border-gray-200">
+                            {act.activityNumber}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-[var(--text-primary)] text-[15px] truncate">{act.name}</h3>
+                            <div className="flex items-center gap-4 text-xs text-[var(--text-tertiary)] mt-1 font-medium">
+                              <span className="flex items-center gap-1"><Calendar size={12}/> {act.startDate}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="w-[150px] flex-shrink-0">
+                            <div className="flex justify-between items-center mb-1 text-xs font-bold">
+                              <span className={act.progress === 100 ? 'text-emerald-600' : 'text-indigo-600'}>
+                                {act.progress}%
+                              </span>
+                              <span className="text-gray-400 font-medium uppercase text-[10px]">
+                                {act.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden relative">
+                              <div 
+                                className={`absolute h-full rounded-full transition-all duration-1000 ${act.progress === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} 
+                                style={{ width: `${act.progress}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex-shrink-0 text-gray-400 pl-4">
+                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                          </div>
+                        </div>
+
+                        {/* Expanded Details */}
+                        {isExpanded && (
+                          <div className="bg-[var(--bg-surface-2)] p-6 border-t border-[var(--border-subtle)] text-sm shadow-inner">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <div>
+                                <h4 className="font-bold text-gray-700 mb-2 uppercase tracking-wide text-xs">Activity Instructions</h4>
+                                <p className="text-gray-600 mb-6 leading-relaxed bg-white p-4 rounded border border-[var(--border-subtle)]">{act.description}</p>
+                              </div>
+                              
+                              <div>
+                                {actVerifications.length > 0 ? (
+                                  <>
+                                    <h4 className="font-bold text-gray-700 mb-3 uppercase tracking-wide text-xs">Evidence History</h4>
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                      {actVerifications.map((v, i) => (
+                                        <div key={v.verificationId} className="flex gap-4 bg-white p-3 rounded-lg border border-[var(--border-subtle)] shadow-sm">
+                                          {v.imageBase64 ? (
+                                            <img src={v.imageBase64} className="w-20 h-20 object-cover rounded-md border border-gray-200 flex-shrink-0" alt="Evidence" />
+                                          ) : (
+                                            <div className="w-20 h-20 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                              <Eye size={20} />
+                                            </div>
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-start mb-1">
+                                              <span className="font-bold text-[13px] text-gray-800">Progress: {v.completionPercentage}%</span>
+                                              <span className="text-[11px] font-medium text-gray-500">{new Date(v.evidenceTime).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-600 line-clamp-3">"{v.description || 'No description provided.'}"</p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="h-full min-h-[150px] flex flex-col items-center justify-center text-gray-400 bg-white rounded-lg border border-dashed border-gray-300 p-6">
+                                    <Paperclip size={24} className="mb-2 opacity-50" />
+                                    <span className="font-medium text-sm">No evidence submitted yet</span>
+                                    {canSubmitEvidence && (
+                                       <button 
+                                          onClick={(e) => { e.stopPropagation(); setShowWorkspace(true); }}
+                                          className="mt-3 text-xs font-bold text-indigo-600 hover:underline"
+                                        >
+                                          Submit now
+                                        </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-gray-500 bg-gray-50">
+                  <p>No specific activities mapped. The task is being tracked as a single unit.</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  );
+}

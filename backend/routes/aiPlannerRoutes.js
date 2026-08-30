@@ -193,6 +193,7 @@ router.post('/plan/approve', authenticateAdmin, (req, res) => {
         if (finalSupervisorId && io) {
           try {
             io.to(`worker_${finalSupervisorId}`).emit('task_created', { taskId: mainTaskId, assignedWorkerId: finalSupervisorId });
+            io.to('admin_room').emit('task_created', { taskId: mainTaskId, assignedWorkerId: finalSupervisorId });
           } catch (socketErr) {
             console.error('Socket notification failed:', socketErr);
           }

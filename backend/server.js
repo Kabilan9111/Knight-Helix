@@ -254,51 +254,6 @@ app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
   }
 });
 
-// Worker Status Update Endpoint (ASSIGNED -> IN_PROGRESS -> SUBMITTED)
-app.patch('/api/tasks/:id/status', authenticateToken, requireRole('WORKER'), (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-
-  const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
-  if (!task) {
-    return res.status(404).json({ error: 'Task not found.' });
-  }
-  if (task.assignedWorkerId !== req.user.workerId) {
-    return res.status(403).json({ error: 'Unauthorized. You can only update your own tasks.' });
-  }
-
-  // Validate state transitions
-  const validTransitions = {
-    'ASSIGNED': ['IN_PROGRESS'],
-    'IN_PROGRESS': ['SUBMITTED'],
-    'SUBMITTED': [] // Only admin can verify/complete from here
-  };
-
-  const allowedNextStates = validTransitions[task.status] || [];
-  if (!allowedNextStates.includes(status) && task.status !== status) {
-    return res.status(400).json({ error: `Invalid status transition from ${task.status} to ${status}.` });
-  }
-
-  let progress = task.progress;
-  if (status === 'IN_PROGRESS' && progress === 0) progress = 10;
-  if (status === 'SUBMITTED') progress = 100;
-
-  try {
-    db.prepare('UPDATE tasks SET status = ?, progress = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?')
-      .run(status, progress, id);
-
-    // Log the transition
-    db.prepare(`
-      INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
-      VALUES (?, ?, ?, ?, ?)
-    `).run(`UPD-${Date.now()}`, id, req.user.workerId, `Status changed to ${status}`, 'Field Site');
-
-    io.emit('task_updated', { taskId: id, assignedWorkerId: req.user.workerId, status });
-    res.json({ success: true, status });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error during status update.' });
-  }
-});
 
 // Submit Work Proof (AI Evidence Verification)
 app.post('/api/tasks/:id/evidence', authenticateToken, requireRole('WORKER'), (req, res, next) => {
@@ -630,7 +585,7 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: err.message || 'Internal Server Error' });
 });
 
-// --- DEADLINE ENFORCEMENT WORKER ---
+// --- DEADLINE ENFORCEMENT & LIFECYCLE WORKER ---
 setInterval(() => {
   try {
     const activeActivities = db.prepare(`
@@ -640,7 +595,6 @@ setInterval(() => {
     `).all();
 
     const now = new Date();
-    let hasUpdates = false;
 
     for (const act of activeActivities) {
       const targetDateStr = act.endDate || act.startDate;
@@ -650,20 +604,44 @@ setInterval(() => {
       if (isNaN(deadline.getTime())) continue;
 
       deadline.setHours(23, 59, 59, 999);
+      
+      const startDateObj = new Date(act.startDate || targetDateStr);
+      startDateObj.setHours(0, 0, 0, 0);
 
+      const taskObj = db.prepare('SELECT assignedWorkerId FROM tasks WHERE taskId = ?').get(act.taskId);
+
+      // Transition to MISSED
       if (now.getTime() > deadline.getTime()) {
-        console.log(`[DEADLINE WORKER] Activity ${act.activityId} missed deadline (${deadline.toISOString()}). Current time: ${now.toISOString()}`);
+        console.log(`[LIFECYCLE WORKER] Activity ${act.activityId} missed deadline (${deadline.toISOString()}). Current time: ${now.toISOString()}`);
         
         db.transaction(() => {
           db.prepare(`UPDATE task_activities SET status = 'MISSED', missedAt = CURRENT_TIMESTAMP WHERE activityId = ?`).run(act.activityId);
           db.prepare(`UPDATE tasks SET status = 'MISSED', missedAt = CURRENT_TIMESTAMP WHERE taskId = ?`).run(act.taskId);
         })();
 
-        io.emit('task_updated', { taskId: act.taskId, activityId: act.activityId, status: 'MISSED' });
+        // Broadcast securely
+        if (taskObj && taskObj.assignedWorkerId) {
+          io.to(`worker_${taskObj.assignedWorkerId}`).emit('task_updated', { taskId: act.taskId, activityId: act.activityId, status: 'MISSED' });
+        }
+        io.to('admin_room').emit('task_updated', { taskId: act.taskId, activityId: act.activityId, status: 'MISSED' });
+      } 
+      // Transition to IN_PROGRESS
+      else if (now.getTime() >= startDateObj.getTime() && (act.status === 'ASSIGNED' || act.status === 'Pending')) {
+        console.log(`[LIFECYCLE WORKER] Auto-starting Activity ${act.activityId}`);
+        
+        db.transaction(() => {
+          db.prepare(`UPDATE task_activities SET status = 'IN_PROGRESS' WHERE activityId = ?`).run(act.activityId);
+          db.prepare(`UPDATE tasks SET status = 'IN_PROGRESS' WHERE taskId = ? AND status IN ('ASSIGNED', 'Pending')`).run(act.taskId);
+        })();
+
+        if (taskObj && taskObj.assignedWorkerId) {
+          io.to(`worker_${taskObj.assignedWorkerId}`).emit('task_updated', { taskId: act.taskId, activityId: act.activityId, status: 'IN_PROGRESS' });
+        }
+        io.to('admin_room').emit('task_updated', { taskId: act.taskId, activityId: act.activityId, status: 'IN_PROGRESS' });
       }
     }
   } catch (err) {
-    console.error('Deadline worker error:', err);
+    console.error('Lifecycle worker error:', err);
   }
 }, 10000);
 

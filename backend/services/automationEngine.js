@@ -72,7 +72,10 @@ function executeApprovedPlan(plan, adminId, io) {
 
     // 4. Emit Socket.IO Events
     if (io) {
-      io.emit('task_created', { taskId, assignedWorkerId: plan.assignedWorkerId });
+      if (plan.assignedWorkerId) {
+        io.to(`worker_${plan.assignedWorkerId}`).emit('task_created', { taskId, assignedWorkerId: plan.assignedWorkerId });
+      }
+      io.to('admin_room').emit('task_created', { taskId, assignedWorkerId: plan.assignedWorkerId });
     }
 
     // 5. Create Audit Record
