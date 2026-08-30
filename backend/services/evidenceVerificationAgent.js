@@ -40,66 +40,118 @@ RULES:
 }
 `;
 
-async function processEvidence(taskId, workerId, imageBase64, description, io) {
+async function processEvidence(taskId, activityId, workerId, imageBase64, description, io) {
   // 1. Fetch Task Context & Activities
   const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(taskId);
   if (!task) throw new Error("Task not found");
 
-  const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ? ORDER BY activityNumber ASC').all(taskId);
+  const activity = db.prepare('SELECT * FROM task_activities WHERE taskId = ? AND activityId = ?').get(taskId, activityId);
+  if (!activity) throw new Error("Activity not found");
 
-  // 2. Save Evidence to DB
+  if (activity.status === 'VERIFICATION_PENDING') {
+      throw new Error("Evidence has already been submitted for this activity and is pending verification.");
+  }
+
+  let detectedTimestamp = null;
+
+  // 2. OCR Timestamp Extraction & Validation
+  if (genAI && imageBase64) {
+    try {
+      const timestampModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const mimeType = imageBase64.split(';')[0].split(':')[1];
+      const base64Data = imageBase64.split(',')[1];
+      
+      const tsPrompt = "Extract the visible date and time stamped on this image. Look closely at the corners, edges, or overlays. If there is a visible capture date/time, return it in strict ISO format (e.g. 2026-08-30T14:10:00). If there are multiple dates, return the most likely capture time. If no date/time is visible, reply exactly with 'NOT_FOUND'. Only output the timestamp or NOT_FOUND, nothing else.";
+      
+      const tsContents = [
+        { role: 'user', parts: [
+          { text: tsPrompt },
+          { inlineData: { data: base64Data, mimeType: mimeType || 'image/jpeg' } }
+        ] }
+      ];
+      
+      const tsResult = await timestampModel.generateContent({ contents: tsContents });
+      let tsText = tsResult.response.text().trim();
+      
+      if (tsText !== 'NOT_FOUND') {
+          // Clean up potential markdown
+          if (tsText.startsWith('`') && tsText.endsWith('`')) {
+              tsText = tsText.replace(/`/g, '').trim();
+          }
+          detectedTimestamp = new Date(tsText);
+          if (isNaN(detectedTimestamp.getTime())) {
+              detectedTimestamp = null;
+          }
+      }
+    } catch (err) {
+       console.error("Timestamp OCR failed:", err);
+    }
+  } else if (!genAI) {
+    // Mock timestamp if no API key is provided
+    detectedTimestamp = new Date();
+  }
+
+  if (!detectedTimestamp) {
+      throw new Error("Could not verify the capture date and time. Please upload a clear, timestamped photo.");
+  }
+  
+  const serverNow = new Date();
+  const diffHours = (serverNow - detectedTimestamp) / (1000 * 60 * 60);
+  
+  if (diffHours < -0.5) { // Small buffer for clock drift
+      throw new Error("Invalid timestamp: Future capture date detected.");
+  }
+  
+  if (diffHours > 2) {
+      throw new Error("Invalid timestamp: Photo is older than the allowed 2-hour window. Please upload current evidence.");
+  }
+  
+  if (detectedTimestamp.getDate() !== serverNow.getDate() || detectedTimestamp.getMonth() !== serverNow.getMonth() || detectedTimestamp.getFullYear() !== serverNow.getFullYear()) {
+      throw new Error("Invalid timestamp: Photo must be taken today.");
+  }
+
+  // 3. Save Evidence to DB
   const evidenceId = `EVID-${Date.now()}`;
   db.prepare(`
-    INSERT INTO worker_evidence (evidenceId, taskId, workerId, imageBase64, description)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(evidenceId, taskId, workerId, imageBase64, description);
+    INSERT INTO worker_evidence (evidenceId, taskId, workerId, imageBase64, description, activityId, detectedCaptureDateTime, verificationStatus)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
+  `).run(evidenceId, taskId, workerId, imageBase64, description, activityId, detectedTimestamp.toISOString());
 
   let verificationResult;
 
-  // 3. AI Analysis
+  // 4. AI Analysis for Progress
   if (!genAI) {
     console.log("No GEMINI_API_KEY found. Using fallback mock verification.");
     
     await new Promise(r => setTimeout(r, 1500));
     
-    // Deterministic Mock Logic
-    const activeActivity = activities.find(a => a.progress < 100) || activities[0];
-    let previousActivityProgress = activeActivity ? activeActivity.progress : 0;
-    
+    let previousActivityProgress = activity.progress;
     let newProgress = previousActivityProgress + 35;
     if (newProgress > 100) newProgress = 100;
     
     verificationResult = {
       evidenceMatch: true,
-      matchedActivityId: activeActivity ? activeActivity.activityId : null,
-      matchedActivityName: activeActivity ? activeActivity.name : null,
+      matchedActivityId: activityId,
+      matchedActivityName: activity.name,
       completionPercentage: newProgress,
       confidence: 94,
       explanation: "The submitted evidence shows active progress on the task site consistent with the worker's description. The progress is verified.",
       requiresAdditionalEvidence: false,
       riskFlags: []
     };
-
-    if (description && description.toLowerCase().includes('issue')) {
-      verificationResult.riskFlags.push("Worker reported an issue in the description.");
-      verificationResult.completionPercentage = previousActivityProgress;
-    }
   } else {
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
-      const activitiesList = activities.map(a => 
-        `- ID: ${a.activityId}, Name: ${a.name}, Current Progress: ${a.progress}%`
-      ).join('\n');
-
       const contextStr = `
 TASK DETAILS:
 Title: ${task.title}
 Description: ${task.description}
-Project: ${task.projectId}
 
-ACTIVITIES:
-${activitiesList || 'No specific activities mapped, assume entire task is one activity.'}
+SUBMITTED FOR ACTIVITY:
+ID: ${activity.activityId}
+Name: ${activity.name}
+Current Progress: ${activity.progress}%
 
 WORKER SUBMITTED TEXT: "${description}"
       `;
@@ -126,23 +178,22 @@ WORKER SUBMITTED TEXT: "${description}"
       if (cleaned.startsWith('```')) cleaned = cleaned.replace(/```/g, '').trim();
       
       verificationResult = JSON.parse(cleaned);
+      // Force it to match the requested activity for safety
+      verificationResult.matchedActivityId = activityId;
+      verificationResult.evidenceMatch = true;
 
-      // Enforce cumulative progress based on matched activity
-      if (verificationResult.matchedActivityId) {
-        const matchedAct = activities.find(a => a.activityId === verificationResult.matchedActivityId);
-        if (matchedAct && verificationResult.completionPercentage < matchedAct.progress) {
-          verificationResult.completionPercentage = matchedAct.progress;
-          verificationResult.explanation += " (Note: Calculated progress was lower than previous for this activity, adhering to cumulative progress rule).";
-        }
+      // Enforce cumulative progress
+      if (verificationResult.completionPercentage < activity.progress) {
+        verificationResult.completionPercentage = activity.progress;
+        verificationResult.explanation += " (Note: Calculated progress was lower than previous, adhering to cumulative progress rule).";
       }
-
     } catch (err) {
       console.error("AI Evidence Verification Error:", err);
       throw new Error("AI verification failed. Please try again later.");
     }
   }
 
-  // 4. Update Database
+  // 5. Update Database
   const verificationId = `VERIF-${Date.now()}`;
   db.prepare(`
     INSERT INTO ai_evidence_verifications (
@@ -159,10 +210,10 @@ WORKER SUBMITTED TEXT: "${description}"
     verificationResult.evidenceMatch ? 'MATCH' : 'MISMATCH'
   );
 
-  let updatedActivities = activities;
+  let updatedActivities = [];
 
   if (verificationResult.matchedActivityId && verificationResult.evidenceMatch) {
-    let actStatus = 'SUBMITTED';
+    let actStatus = 'VERIFICATION_PENDING';
 
     db.prepare(`
       UPDATE task_activities 
@@ -183,7 +234,7 @@ WORKER SUBMITTED TEXT: "${description}"
     overallProgress = verificationResult.completionPercentage;
   }
 
-  let newStatus = 'SUBMITTED';
+  let newStatus = 'VERIFICATION_PENDING';
 
   db.prepare(`
     UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP, evidenceReceivedAt = CURRENT_TIMESTAMP WHERE taskId = ?

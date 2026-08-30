@@ -129,7 +129,7 @@ export default function AdminDashboard() {
   const activeProjects = projects.length || 8;
   const assignedTasks = tasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length;
   const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length;
-  const pendingVerification = tasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length;
+  const pendingVerification = tasks.filter(t => t.status === 'VERIFICATION_PENDING' || t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length;
   const atRiskTasks = 11; // Dummy static
   const evidenceConfidence = "94.2%"; // Dummy static
 
@@ -137,8 +137,8 @@ export default function AdminDashboard() {
   const filteredTasks = tasks.filter(t => {
     if (filter === 'assigned') return t.status === 'ASSIGNED' || t.status === 'Pending';
     if (filter === 'in-progress') return t.status === 'IN_PROGRESS' || t.status === 'In Progress';
-    if (filter === 'pending-verification') return t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
-    if (filter === 'completed') return t.status === 'Completed';
+    if (filter === 'pending-verification') return t.status === 'VERIFICATION_PENDING' || t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
+    if (filter === 'completed') return t.status === 'COMPLETED' || t.status === 'Completed';
     return true;
   });
 

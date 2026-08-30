@@ -118,7 +118,7 @@ export default function WorkerTaskDetail() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
   const [expandedActivities, setExpandedActivities] = useState(new Set());
-  const [showWorkspace, setShowWorkspace] = useState(false);
+  const [activeSubmissionActivityId, setActiveSubmissionActivityId] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -209,19 +209,6 @@ export default function WorkerTaskDetail() {
 
   const { task, activities, verifications } = data;
 
-  if (showWorkspace) {
-    return (
-      <FieldVerificationWorkspace
-        task={task}
-        onClose={() => setShowWorkspace(false)}
-        onVerified={() => {
-          setShowWorkspace(false);
-          fetchData();
-        }}
-      />
-    );
-  }
-
   const getPriorityBadge = (p) => {
     if (p === 'High') return 'bg-red-50 text-red-700 border-red-200';
     if (p === 'Medium') return 'bg-orange-50 text-orange-700 border-orange-200';
@@ -274,17 +261,6 @@ export default function WorkerTaskDetail() {
                 <span className="text-[var(--text-primary)]">Timeline:</span> {task.startDate || 'N/A'} — {task.dueDate || 'N/A'}
               </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {canSubmitEvidence && (
-              <button 
-                onClick={() => setShowWorkspace(true)}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-2"
-              >
-                <Navigation size={18} /> Submit Evidence
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -363,53 +339,65 @@ export default function WorkerTaskDetail() {
                         {/* Expanded Details */}
                         {isExpanded && (
                           <div className="bg-[var(--bg-surface-2)] p-6 border-t border-[var(--border-subtle)] text-sm shadow-inner">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div>
-                                <h4 className="font-bold text-gray-700 mb-2 uppercase tracking-wide text-xs">Activity Instructions</h4>
-                                <p className="text-gray-600 mb-6 leading-relaxed bg-white p-4 rounded border border-[var(--border-subtle)]">{act.description}</p>
-                              </div>
-                              
-                              <div>
-                                {actVerifications.length > 0 ? (
-                                  <>
-                                    <h4 className="font-bold text-gray-700 mb-3 uppercase tracking-wide text-xs">Evidence History</h4>
-                                    <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                                      {actVerifications.map((v, i) => (
-                                        <div key={v.verificationId} className="flex gap-4 bg-white p-3 rounded-lg border border-[var(--border-subtle)] shadow-sm">
-                                          {v.imageBase64 ? (
-                                            <img src={v.imageBase64} className="w-20 h-20 object-cover rounded-md border border-gray-200 flex-shrink-0" alt="Evidence" />
-                                          ) : (
-                                            <div className="w-20 h-20 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                              <Eye size={20} />
+                            {activeSubmissionActivityId === act.activityId ? (
+                              <FieldVerificationWorkspace
+                                task={task}
+                                activityId={act.activityId}
+                                onClose={() => setActiveSubmissionActivityId(null)}
+                                onVerified={() => {
+                                  setActiveSubmissionActivityId(null);
+                                  fetchData();
+                                }}
+                              />
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                  <h4 className="font-bold text-gray-700 mb-2 uppercase tracking-wide text-xs">Activity Instructions</h4>
+                                  <p className="text-gray-600 mb-6 leading-relaxed bg-white p-4 rounded border border-[var(--border-subtle)]">{act.description}</p>
+                                </div>
+                                
+                                <div>
+                                  {actVerifications.length > 0 ? (
+                                    <>
+                                      <h4 className="font-bold text-gray-700 mb-3 uppercase tracking-wide text-xs">Evidence History</h4>
+                                      <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                        {actVerifications.map((v, i) => (
+                                          <div key={v.verificationId} className="flex gap-4 bg-white p-3 rounded-lg border border-[var(--border-subtle)] shadow-sm">
+                                            {v.imageBase64 ? (
+                                              <img src={v.imageBase64} className="w-20 h-20 object-cover rounded-md border border-gray-200 flex-shrink-0" alt="Evidence" />
+                                            ) : (
+                                              <div className="w-20 h-20 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                                <Eye size={20} />
+                                              </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex justify-between items-start mb-1">
+                                                <span className="font-bold text-[13px] text-gray-800">Progress: {v.completionPercentage}%</span>
+                                                <span className="text-[11px] font-medium text-gray-500">{new Date(v.evidenceTime).toLocaleDateString()}</span>
+                                              </div>
+                                              <p className="text-xs text-gray-600 line-clamp-3">"{v.description || 'No description provided.'}"</p>
                                             </div>
-                                          )}
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start mb-1">
-                                              <span className="font-bold text-[13px] text-gray-800">Progress: {v.completionPercentage}%</span>
-                                              <span className="text-[11px] font-medium text-gray-500">{new Date(v.evidenceTime).toLocaleDateString()}</span>
-                                            </div>
-                                            <p className="text-xs text-gray-600 line-clamp-3">"{v.description || 'No description provided.'}"</p>
                                           </div>
-                                        </div>
-                                      ))}
+                                        ))}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="h-full min-h-[150px] flex flex-col items-center justify-center text-gray-400 bg-white rounded-lg border border-dashed border-gray-300 p-6">
+                                      <Paperclip size={24} className="mb-2 opacity-50" />
+                                      <span className="font-medium text-sm">NO EVIDENCE SUBMITTED YET</span>
+                                      {canSubmitEvidence && (
+                                         <button 
+                                            onClick={(e) => { e.stopPropagation(); setActiveSubmissionActivityId(act.activityId); }}
+                                            className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-md text-xs font-bold hover:bg-indigo-700 shadow-sm transition-colors"
+                                          >
+                                            SUBMIT NOW
+                                          </button>
+                                      )}
                                     </div>
-                                  </>
-                                ) : (
-                                  <div className="h-full min-h-[150px] flex flex-col items-center justify-center text-gray-400 bg-white rounded-lg border border-dashed border-gray-300 p-6">
-                                    <Paperclip size={24} className="mb-2 opacity-50" />
-                                    <span className="font-medium text-sm">No evidence submitted yet</span>
-                                    {canSubmitEvidence && (
-                                       <button 
-                                          onClick={(e) => { e.stopPropagation(); setShowWorkspace(true); }}
-                                          className="mt-3 text-xs font-bold text-indigo-600 hover:underline"
-                                        >
-                                          Submit now
-                                        </button>
-                                    )}
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         )}
                       </div>

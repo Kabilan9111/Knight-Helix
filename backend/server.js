@@ -268,10 +268,15 @@ app.post('/api/tasks/:id/evidence', authenticateToken, requireRole('WORKER'), (r
 }, async (req, res) => {
   const { id } = req.params;
   const description = req.body.description || '';
+  const activityId = req.body.activityId;
   const workerId = req.user.workerId;
 
   if (!req.file && !description.trim()) {
     return res.status(400).json({ error: 'Either an image or a description must be provided.' });
+  }
+  
+  if (!activityId) {
+    return res.status(400).json({ error: 'Activity ID is required for evidence submission.' });
   }
 
   let imageBase64 = null;
@@ -284,13 +289,18 @@ app.post('/api/tasks/:id/evidence', authenticateToken, requireRole('WORKER'), (r
   if (!task || task.assignedWorkerId !== workerId) {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
+  
+  const activity = db.prepare('SELECT * FROM task_activities WHERE taskId = ? AND activityId = ?').get(id, activityId);
+  if (!activity) {
+    return res.status(404).json({ error: 'Activity not found.' });
+  }
 
   try {
-    const result = await processEvidence(id, workerId, imageBase64, description, io);
+    const result = await processEvidence(id, activityId, workerId, imageBase64, description, io);
     res.json({ success: true, verification: result });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'AI Verification failed.' });
+    res.status(400).json({ error: err.message || 'Verification failed.' });
   }
 });
 
@@ -304,6 +314,73 @@ app.get('/api/tasks/:id/verifications', authenticateToken, (req, res) => {
     ORDER BY v.timestamp DESC
   `).all(id);
   res.json(verifications);
+});
+
+// Admin Queue: Get all pending verifications
+app.get('/api/admin/verifications/pending', authenticateToken, requireRole('ADMIN'), (req, res) => {
+  try {
+    const pending = db.prepare(`
+      SELECT 
+        e.evidenceId, e.taskId, e.activityId, e.workerId, e.imageBase64, e.description, e.detectedCaptureDateTime, e.timestamp as evidenceTime,
+        t.title as taskTitle, t.projectName,
+        a.name as activityName, a.progress as currentProgress,
+        v.completionPercentage as recommendedProgress, v.explanation
+      FROM worker_evidence e
+      JOIN tasks t ON e.taskId = t.taskId
+      JOIN task_activities a ON e.activityId = a.activityId
+      LEFT JOIN ai_evidence_verifications v ON e.evidenceId = v.evidenceId
+      WHERE e.verificationStatus = 'PENDING' OR a.status = 'VERIFICATION_PENDING'
+      ORDER BY e.timestamp ASC
+    `).all();
+    res.json(pending);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch pending verifications.' });
+  }
+});
+
+// Admin Queue: Resolve verification
+app.post('/api/admin/verifications/:id/resolve', authenticateToken, requireRole('ADMIN'), (req, res) => {
+  const { id } = req.params;
+  const { action, rejectionReason } = req.body;
+  const engineerId = req.user.adminId || req.user.username;
+
+  try {
+    const evidence = db.prepare('SELECT * FROM worker_evidence WHERE evidenceId = ?').get(id);
+    if (!evidence) return res.status(404).json({ error: 'Evidence not found' });
+    
+    if (action === 'APPROVE') {
+      const verification = db.prepare('SELECT * FROM ai_evidence_verifications WHERE evidenceId = ?').get(id);
+      const newProgress = verification ? verification.completionPercentage : 100;
+      
+      db.prepare(`UPDATE worker_evidence SET verificationStatus = 'APPROVED', engineerId = ? WHERE evidenceId = ?`).run(engineerId, id);
+      db.prepare(`UPDATE task_activities SET status = 'IN_PROGRESS', progress = ? WHERE activityId = ?`).run(newProgress, evidence.activityId);
+      
+      if (newProgress === 100) {
+        db.prepare(`UPDATE task_activities SET status = 'COMPLETED' WHERE activityId = ?`).run(evidence.activityId);
+      }
+      
+      // Update overall task progress
+      const activities = db.prepare('SELECT progress FROM task_activities WHERE taskId = ?').all(evidence.taskId);
+      const avg = Math.round(activities.reduce((s, a) => s + a.progress, 0) / (activities.length || 1));
+      db.prepare(`UPDATE tasks SET progress = ?, status = ? WHERE taskId = ?`).run(avg, avg === 100 ? 'COMPLETED' : 'IN_PROGRESS', evidence.taskId);
+      
+    } else if (action === 'REJECT') {
+      db.prepare(`UPDATE worker_evidence SET verificationStatus = 'REJECTED', rejectionReason = ?, engineerId = ? WHERE evidenceId = ?`).run(rejectionReason, engineerId, id);
+      db.prepare(`UPDATE task_activities SET status = 'IN_PROGRESS' WHERE activityId = ?`).run(evidence.activityId);
+      
+      const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(evidence.taskId);
+      db.prepare(`UPDATE tasks SET status = 'IN_PROGRESS' WHERE taskId = ?`).run(evidence.taskId);
+    }
+    
+    io.emit('task_updated', { taskId: evidence.taskId });
+    io.emit('evidence_verified', { taskId: evidence.taskId });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to resolve verification.' });
+  }
 });
 
 // Submit Field Verification (Spatial Tracking)

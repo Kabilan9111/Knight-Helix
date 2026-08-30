@@ -92,6 +92,23 @@ try {
   // Ignore if column already exists
 }
 
+// Additive schema updates for worker_evidence
+const evidenceColumns = [
+  'ALTER TABLE worker_evidence ADD COLUMN activityId TEXT',
+  'ALTER TABLE worker_evidence ADD COLUMN detectedCaptureDateTime TEXT',
+  'ALTER TABLE worker_evidence ADD COLUMN verificationStatus TEXT DEFAULT "PENDING"',
+  'ALTER TABLE worker_evidence ADD COLUMN rejectionReason TEXT',
+  'ALTER TABLE worker_evidence ADD COLUMN engineerId TEXT'
+];
+
+for (const query of evidenceColumns) {
+  try {
+    db.prepare(query).run();
+  } catch (err) {
+    // Ignore if column already exists
+  }
+}
+
 db.prepare(`
   CREATE TABLE IF NOT EXISTS field_verifications (
     verificationId TEXT PRIMARY KEY,

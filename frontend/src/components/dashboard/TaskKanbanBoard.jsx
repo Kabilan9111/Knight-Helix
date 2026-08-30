@@ -18,7 +18,7 @@ export default function TaskKanbanBoard({ tasks }) {
   const columns = [
     { id: 'ASSIGNED', label: 'ASSIGNED', color: 'text-blue-500', count: displayTasks.filter(t => t.status === 'ASSIGNED' || t.status === 'Pending').length },
     { id: 'IN_PROGRESS', label: 'IN PROGRESS', color: 'text-blue-600', count: displayTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'In Progress').length },
-    { id: 'SUBMITTED', label: 'PENDING VERIFICATION', color: 'text-orange-500', count: displayTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length },
+    { id: 'SUBMITTED', label: 'PENDING VERIFICATION', color: 'text-orange-500', count: displayTasks.filter(t => t.status === 'VERIFICATION_PENDING' || t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk').length },
     { id: 'Completed', label: 'COMPLETED', color: 'text-emerald-500', count: displayTasks.filter(t => t.status === 'Completed').length }
   ];
 
@@ -70,7 +70,7 @@ export default function TaskKanbanBoard({ tasks }) {
             
             <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar h-[600px] pb-4">
               {displayTasks.filter(t => {
-                if (col.id === 'SUBMITTED') return t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
+                if (col.id === 'SUBMITTED') return t.status === 'VERIFICATION_PENDING' || t.status === 'SUBMITTED' || t.status === 'Pending Verification' || t.status === 'At Risk';
                 if (col.id === 'ASSIGNED') return t.status === 'ASSIGNED' || t.status === 'Pending';
                 if (col.id === 'IN_PROGRESS') return t.status === 'IN_PROGRESS' || t.status === 'In Progress';
                 return t.status === col.id;
