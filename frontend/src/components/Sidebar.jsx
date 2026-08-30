@@ -201,7 +201,7 @@ export default function Sidebar() {
 
       <NavGroup title="Intelligence">
         <NavItem icon={BrainCircuit} label="Execution Visualization" path="/admin/visualization" />
-        <NavItem icon={AlertTriangle} label="Risk & Delay Ripple" />
+        <NavItem icon={AlertTriangle} label="Risk & Delay Ripple" path="/admin/risk-delay-ripple" />
         <NavItem icon={Lightbulb} label="AI Recommendations" />
         <NavItem icon={Database} label="Institutional Memory" />
       </NavGroup>

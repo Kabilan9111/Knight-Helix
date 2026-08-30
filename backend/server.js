@@ -9,6 +9,7 @@ const multer = require('multer');
 const db = require('./db');
 const aiPlannerRoutes = require('./routes/aiPlannerRoutes');
 const visualizationRoutes = require('./routes/visualizationRoutes');
+const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const { processEvidence, processFieldVerification } = require('./services/evidenceVerificationAgent');
 
 const app = express();
@@ -21,6 +22,7 @@ const upload = multer({
 app.use(cors());
 app.use(express.json());
 app.use('/api/ai', aiPlannerRoutes);
+app.use('/api/admin/intelligence', intelligenceRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -322,11 +324,12 @@ app.get('/api/admin/verifications/pending', authenticateToken, requireRole('ADMI
     const pending = db.prepare(`
       SELECT 
         e.evidenceId, e.taskId, e.activityId, e.workerId, e.imageBase64, e.description, e.detectedCaptureDateTime, e.timestamp as evidenceTime,
-        t.title as taskTitle, t.projectName,
+        t.title as taskTitle, p.name as projectName,
         a.name as activityName, a.progress as currentProgress,
         v.completionPercentage as recommendedProgress, v.explanation
       FROM worker_evidence e
       JOIN tasks t ON e.taskId = t.taskId
+      LEFT JOIN projects p ON t.projectId = p.projectId
       JOIN task_activities a ON e.activityId = a.activityId
       LEFT JOIN ai_evidence_verifications v ON e.evidenceId = v.evidenceId
       WHERE e.verificationStatus = 'PENDING' OR a.status = 'VERIFICATION_PENDING'

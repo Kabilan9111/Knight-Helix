@@ -144,6 +144,23 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS activity_dependencies (
+    id TEXT PRIMARY KEY,
+    projectId TEXT,
+    taskId TEXT,
+    predecessorActivityId TEXT,
+    successorActivityId TEXT,
+    dependencyType TEXT DEFAULT 'FS',
+    lagDays INTEGER DEFAULT 0,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(projectId) REFERENCES projects(projectId),
+    FOREIGN KEY(taskId) REFERENCES tasks(taskId),
+    FOREIGN KEY(predecessorActivityId) REFERENCES task_activities(activityId),
+    FOREIGN KEY(successorActivityId) REFERENCES task_activities(activityId)
+  )
+`).run();
+
 // Add evidenceReceivedAt and missedAt columns for the execution timer
 try {
   db.prepare('ALTER TABLE tasks ADD COLUMN evidenceReceivedAt DATETIME').run();

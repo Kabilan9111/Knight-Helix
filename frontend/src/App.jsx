@@ -13,6 +13,7 @@ import WorkerTaskDetail from './pages/worker/WorkerTaskDetail';
 import AdminTaskDetail from './pages/admin/AdminTaskDetail';
 import AdminEvidenceVerification from './pages/admin/AdminEvidenceVerification';
 import AIExecutionVisualization from './pages/admin/AIExecutionVisualization';
+import RiskDelayRipple from './pages/admin/RiskDelayRipple';
 
 import OwnerShell from './components/owner/OwnerShell';
 import OwnerDashboard from './pages/owner/OwnerDashboard';
@@ -31,6 +32,7 @@ function App() {
             <Route path="live-map" element={<LiveWorkforceMap />} />
             <Route path="evidence-verification" element={<AdminEvidenceVerification />} />
             <Route path="visualization" element={<AIExecutionVisualization />} />
+            <Route path="risk-delay-ripple" element={<RiskDelayRipple />} />
             <Route path="tasks/:taskId" element={<AdminTaskDetail />} />
             <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
