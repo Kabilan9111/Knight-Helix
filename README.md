@@ -102,54 +102,61 @@ The system follows the engineer on the map, records accepted GPS points, calcula
 
 ---
 
-# 🛠️ Technology Stack
+---
 
-SANCHALAN is built using a modern full-stack architecture combining web application technologies, backend services, databases, AI capabilities and real-world spatial technologies.
+## 🛠️ Tech Stack
 
-### Frontend
+### Languages
 
-- **React** — Component-based user interface and interactive project dashboards
-- **JavaScript** — Application logic and frontend interactions
-- **HTML5** — Application structure and semantic UI
-- **CSS3** — Responsive styling and visual presentation
+![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![SQL](https://img.shields.io/badge/SQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
 
-### Backend
+### Backend Development
 
-- **Java** — Core backend programming language
-- **Spring Boot** — Backend services, REST APIs and application architecture
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![REST API](https://img.shields.io/badge/REST%20API-0B74DE?style=for-the-badge&logo=fastapi&logoColor=white)
+![Maven](https://img.shields.io/badge/Maven-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)
+
+### Frontend Development
+
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 
 ### Databases
 
-- **MySQL** — Structured project, activity, schedule, dependency and execution data
-- **MongoDB** — Flexible storage for evidence, unstructured execution information and AI-related data
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 
 ### Artificial Intelligence
 
-- **AI / LLM Integration** — Natural-language understanding, information extraction, semantic activity linking and decision support
-- **AI Agents** — Proactive analysis, reasoning and recovery recommendations with human approval
+![AI](https://img.shields.io/badge/Artificial%20Intelligence-8A2BE2?style=for-the-badge&logo=openai&logoColor=white)
+![LLM](https://img.shields.io/badge/LLM-111827?style=for-the-badge&logo=openai&logoColor=white)
+![OCR](https://img.shields.io/badge/OCR-DC2626?style=for-the-badge)
+![ASR](https://img.shields.io/badge/ASR-2563EB?style=for-the-badge)
+![Computer Vision](https://img.shields.io/badge/Computer%20Vision-7C3AED?style=for-the-badge)
 
-### Document & Field Data Processing
+### Agentic AI
 
-- **OCR** — Extraction of information from scanned documents and images
-- **ASR** — Conversion of voice updates into text
-- **Computer Vision** — Analysis of visual field evidence
-- **LLM-based Extraction** — Conversion of unstructured reports into structured execution information
+![AI Agents](https://img.shields.io/badge/AI%20Agents-6D28D9?style=for-the-badge)
+![OpenAI API](https://img.shields.io/badge/OpenAI%20API-412991?style=for-the-badge&logo=openai&logoColor=white)
+![Gemini API](https://img.shields.io/badge/Gemini%20API-4285F4?style=for-the-badge&logo=google&logoColor=white)
 
 ### Spatial & Geolocation
 
-- **Browser Geolocation API** — Real device latitude, longitude, accuracy and timestamp collection
-- **GPS Tracking** — Live movement tracking during spatial verification
-- **Map Visualization** — Real-time location, route and project-area visualization
-- **Geofencing** — Spatial verification against configured project/task locations
+![GPS](https://img.shields.io/badge/GPS%20Tracking-DC2626?style=for-the-badge)
+![Geolocation API](https://img.shields.io/badge/Geolocation%20API-2563EB?style=for-the-badge)
+![Geofencing](https://img.shields.io/badge/Geofencing-059669?style=for-the-badge)
+![Maps](https://img.shields.io/badge/Map%20Visualization-0EA5E9?style=for-the-badge)
 
-### Intelligence & Analytics
+### Data & Intelligence
 
-- **Semantic Similarity** — Matching field reports with planned L5/L6 activities
-- **Fuzzy Matching** — Handling variations in activity terminology
-- **Dependency Graph Analysis** — Understanding activity relationships
-- **Delay Propagation Logic** — Identifying downstream schedule exposure
-- **Evidence Confidence Scoring** — Combining available verification signals
-- **Historical Pattern Retrieval** — Reusing execution knowledge from previous projects
+![Semantic Matching](https://img.shields.io/badge/Semantic%20Matching-7C3AED?style=for-the-badge)
+![Dependency Graph](https://img.shields.io/badge/Dependency%20Graph-0891B2?style=for-the-badge)
+![Risk Analysis](https://img.shields.io/badge/Risk%20Analysis-F59E0B?style=for-the-badge)
+![Predictive Analytics](https://img.shields.io/badge/Predictive%20Analytics-16A34A?style=for-the-badge)
 
 ---
 
