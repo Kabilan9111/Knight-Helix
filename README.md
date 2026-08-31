@@ -32,7 +32,7 @@ SANCHALAN brings together ten core capabilities designed to provide a deeper und
 
 ---
 
-<h3><font color="#DC2626">01 · Intelligent Multi-Source Data Capture</font></h3>
+<h3><font color=#DC2626>01 · Intelligent Multi-Source Data Capture</font></h3>
 
 SANCHALAN captures execution information from **DPRs, Excel files, PDFs, text reports, voice updates, images and site reports**.  
 OCR, ASR, computer vision and LLM-based extraction convert unstructured field information into structured execution events.
