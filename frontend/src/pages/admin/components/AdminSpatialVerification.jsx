@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
-import { MapPin, Navigation, ShieldCheck, Play, Square, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { MapPin, Navigation, ShieldCheck, Play, Square, AlertTriangle, CheckCircle2, XCircle, Crosshair } from 'lucide-react';
 
 // Fix default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -29,28 +29,38 @@ const startIcon = new L.DivIcon({
 });
 
 // Auto-pan component for real-time tracking
-function MapPanner({ position, active }) {
+function MapPanner({ position, active, followMode }) {
   const map = useMap();
+  
   useEffect(() => {
-    if (active && position) {
+    if (active && position && followMode) {
+      // Force aggressive zoom on every update if we are not at street level
       if (map.getZoom() < 18) {
-        map.flyTo(position, 19, { animate: true, duration: 1.5 });
+        map.setView(position, 19, { animate: false });
       } else {
         map.panTo(position, { animate: true, duration: 0.5 });
       }
     }
-  }, [position, active, map]);
+  }, [position, active, followMode, map]);
+
   return null;
 }
 
 export default function AdminSpatialVerification({ task, activity, verification, onClose, onVerified }) {
   const [status, setStatus] = useState('READY'); // READY, TRACKING, STOPPED, RESOLVING
-  const [coordinates, setCoordinates] = useState([]); // Array of {lat, lng, accuracy, timestamp}
+  const [coordinates, setCoordinates] = useState([]); // Array of {lat, lng, accuracy, timestamp, speed, heading}
   const [currentPosition, setCurrentPosition] = useState(null); // [lat, lng]
+  const [rawCurrentData, setRawCurrentData] = useState(null); // Full latest reading
   const [distance, setDistance] = useState(0);
   const [estimatedArea, setEstimatedArea] = useState(null);
   const [gpsAccuracy, setGpsAccuracy] = useState(null); // null when waiting
   const [error, setError] = useState('');
+
+  const [followMode, setFollowMode] = useState(true);
+  const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
+  const [bestAccuracy, setBestAccuracy] = useState(null);
+  const [avgAccuracy, setAvgAccuracy] = useState(null);
 
   const watchIdRef = useRef(null);
   const token = localStorage.getItem('sanchalan_token');
@@ -113,51 +123,59 @@ export default function AdminSpatialVerification({ task, activity, verification,
     setGpsAccuracy(null);
     setError('');
     
+    setFollowMode(true);
+    setStartTime(Date.now());
+    setEndTime(null);
+    setBestAccuracy(null);
+    setAvgAccuracy(null);
+    
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const accuracy = Math.round(pos.coords.accuracy);
-        const newPos = [pos.coords.latitude, pos.coords.longitude];
+        const newPoint = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: accuracy,
+          timestamp: pos.timestamp,
+          speed: pos.coords.speed || null,
+          heading: pos.coords.heading || null
+        };
         
-        console.log("REAL GPS UPDATE", {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp
-        });
-
-        setCurrentPosition(newPos);
+        setCurrentPosition([newPoint.lat, newPoint.lng]);
         setGpsAccuracy(accuracy);
+        setRawCurrentData(newPoint);
         
         setCoordinates(prev => {
-          // Check for impossible jumps
           if (prev.length > 0) {
             const lastPoint = prev[prev.length - 1];
-            const distanceJump = turf.distance(
+            const distFromLast = turf.distance(
               [lastPoint.lng, lastPoint.lat],
-              [pos.coords.longitude, pos.coords.latitude],
+              [newPoint.lng, newPoint.lat],
               { units: 'meters' }
             );
             
-            // If jump is > 100m in one tick and accuracy is poor, reject it as a GPS spike
-            if (distanceJump > 100 && accuracy > 30) {
-              console.log("GPS POINT REJECTED", { 
-                reason: 'Impossible distance jump', 
-                latitude: pos.coords.latitude, 
-                longitude: pos.coords.longitude, 
-                accuracy, 
-                distanceJump 
-              });
-              return prev; 
+            const timeDiff = (newPoint.timestamp - lastPoint.timestamp) / 1000;
+            
+            // Outlier Rejection
+            if (accuracy > 1000) {
+              console.log("REJECTED: Unusable accuracy", accuracy);
+              return prev;
+            }
+            
+            // Allow larger jumps if GPS is poor, but still reject truly physically impossible teleportation
+            // (e.g. 500m in 1 second). This ensures the line still draws during laptop testing.
+            if (timeDiff > 0 && (distFromLast / timeDiff) > 100) { 
+              console.log("REJECTED: Teleportation detected", distFromLast, timeDiff);
+              return prev;
+            }
+            
+            // Jitter Reduction
+            if (distFromLast < 1 && timeDiff < 2) {
+              return prev;
             }
           }
           
-          const next = [...prev, { 
-            lat: pos.coords.latitude, 
-            lng: pos.coords.longitude, 
-            accuracy, 
-            timestamp: pos.timestamp 
-          }];
-          
+          const next = [...prev, newPoint];
           const coordsOnly = next.map(p => [p.lat, p.lng]);
           const metrics = calculateMetrics(coordsOnly);
           setDistance(metrics.dist);
@@ -193,10 +211,24 @@ export default function AdminSpatialVerification({ task, activity, verification,
     }
     
     if (!isCleanup && status === 'TRACKING') {
+      const now = Date.now();
+      setEndTime(now);
       const coordsOnly = coordinates.map(p => [p.lat, p.lng]);
       const metrics = calculateMetrics(coordsOnly);
       setDistance(metrics.dist);
       setEstimatedArea(metrics.area);
+      
+      if (coordinates.length > 0) {
+        let best = Infinity;
+        let sum = 0;
+        coordinates.forEach(c => {
+          if (c.accuracy < best) best = c.accuracy;
+          sum += c.accuracy;
+        });
+        setBestAccuracy(Math.round(best));
+        setAvgAccuracy(Math.round(sum / coordinates.length));
+      }
+      
       setStatus('STOPPED');
     }
   };
@@ -208,23 +240,36 @@ export default function AdminSpatialVerification({ task, activity, verification,
     setEstimatedArea(null);
     setGpsAccuracy(null);
     setError('');
+    setStartTime(null);
+    setEndTime(null);
+    setBestAccuracy(null);
+    setAvgAccuracy(null);
+    setRawCurrentData(null);
   };
 
   const handleResolve = async (action) => {
     setStatus('RESOLVING');
     try {
+      const idToResolve = verification.evidenceId || verification.verificationId || verification.id;
+
       const payload = {
         action,
         rejectionReason: action === 'REJECT' ? 'Put on hold during spatial map verification' : undefined,
         spatialData: {
-          coordinates,
+          verificationId: idToResolve,
+          startTime: startTime ? new Date(startTime).toISOString() : null,
+          endTime: endTime ? new Date(endTime).toISOString() : null,
+          pointCount: coordinates.length,
           distance,
+          bestAccuracy,
+          averageAccuracy: avgAccuracy,
           estimatedArea,
-          gpsAccuracy: gpsAccuracy || 0
+          geometry: {
+            type: "LineString",
+            coordinates: coordinates.map(c => [c.lng, c.lat]) // Strict GeoJSON order
+          }
         }
       };
-
-      const idToResolve = verification.evidenceId || verification.verificationId || verification.id;
 
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/verifications/${idToResolve}/resolve`, {
         method: 'POST',
@@ -310,11 +355,19 @@ export default function AdminSpatialVerification({ task, activity, verification,
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
             />
-            <MapPanner position={currentPosition} active={status === 'TRACKING'} />
+            <MapPanner position={currentPosition} active={status === 'TRACKING'} followMode={followMode} setFollowMode={setFollowMode} />
             
             {/* LAYERED GLOWING GOLDEN LINE */}
             {polylinePositions.length > 0 && (
               <>
+                {/* If sufficiently closed and STOPPED, render a filled polygon */}
+                {estimatedArea && status === 'STOPPED' && (
+                   <Polygon 
+                      positions={polylinePositions} 
+                      pathOptions={{ fillColor: '#FFD700', fillOpacity: 0.2, color: 'transparent' }} 
+                   />
+                )}
+                
                 {/* Wide Translucent Glow Underneath */}
                 <Polyline 
                   positions={polylinePositions} 
@@ -336,33 +389,58 @@ export default function AdminSpatialVerification({ task, activity, verification,
             {currentPosition && status === 'TRACKING' && <Marker position={currentPosition} icon={liveIcon} />}
           </MapContainer>
 
-          {/* Floating Tracking UI */}
+          {/* Floating Tracking HUD */}
           {(status === 'TRACKING' || status === 'STOPPED') && (
-            <div className="absolute top-6 left-6 z-[400] bg-white/90 backdrop-blur shadow-lg border border-[var(--border-medium)] rounded-2xl p-5 w-72">
-              <div className="flex items-center gap-2 mb-4">
-                {status === 'TRACKING' ? (
-                  <><span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-                  <span className="text-xs font-bold text-red-600 uppercase tracking-widest">● LIVE Tracking your location...</span></>
-                ) : (
-                  <><span className="w-2.5 h-2.5 bg-slate-400 rounded-full"></span>
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Walk Completed</span></>
+            <div className="absolute top-6 left-6 z-[400] bg-white/95 backdrop-blur shadow-xl border border-[var(--border-medium)] rounded-2xl p-4 w-80">
+              <div className="flex items-center justify-between mb-3 border-b pb-2">
+                <div className="flex items-center gap-2">
+                  {status === 'TRACKING' ? (
+                    <><span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                    <span className="text-xs font-bold text-red-600 uppercase tracking-widest">LIVE TELEMETRY</span></>
+                  ) : (
+                    <><span className="w-2.5 h-2.5 bg-slate-400 rounded-full"></span>
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">TRACE FINALIZED</span></>
+                  )}
+                </div>
+                {status === 'TRACKING' && !followMode && (
+                  <button onClick={() => setFollowMode(true)} className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors">
+                    <Crosshair size={12}/> RECENTER
+                  </button>
                 )}
               </div>
               
-              <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <div className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Distance</div>
-                  <div className="text-xl font-black text-[var(--text-primary)]">{distance} m</div>
+              {rawCurrentData ? (
+                <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                  <div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Latitude</div>
+                    <div className="text-xs font-medium text-slate-800 font-mono">{rawCurrentData.lat.toFixed(6)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Longitude</div>
+                    <div className="text-xs font-medium text-slate-800 font-mono">{rawCurrentData.lng.toFixed(6)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Speed</div>
+                    <div className="text-xs font-medium text-slate-800 font-mono">{rawCurrentData.speed ? `${rawCurrentData.speed.toFixed(1)} m/s` : '--'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Heading</div>
+                    <div className="text-xs font-medium text-slate-800 font-mono">{rawCurrentData.heading ? `${Math.round(rawCurrentData.heading)}°` : '--'}</div>
+                  </div>
+                  <div className="col-span-2 flex justify-between items-end border-t border-slate-100 pt-2 mt-1">
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase">GPS Quality</div>
+                      {getAccuracyDisplay(gpsAccuracy)}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase">Accepted Pts</div>
+                      <div className="text-lg font-black text-slate-800">{coordinates.length}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-end">
-                  <div className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">GPS Points</div>
-                  <div className="text-lg font-bold text-[var(--text-primary)]">{coordinates.length}</div>
-                </div>
-                <div className="flex justify-between items-start">
-                  <div className="text-[10px] font-bold text-[var(--text-secondary)] uppercase mt-1">GPS Accuracy</div>
-                  {getAccuracyDisplay(gpsAccuracy)}
-                </div>
-              </div>
+              ) : (
+                <div className="py-4 text-center text-sm font-medium text-slate-500 animate-pulse">Acquiring GPS Signal...</div>
+              )}
             </div>
           )}
         </div>
@@ -414,6 +492,34 @@ export default function AdminSpatialVerification({ task, activity, verification,
                   <div className="text-2xl font-black text-[var(--text-primary)]">{distance} m</div>
                 </div>
                 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
+                    <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">Time Elapsed</div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">
+                      {startTime && endTime ? `${Math.round((endTime - startTime) / 1000)}s` : '--'}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
+                    <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">GPS Points</div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{coordinates.length}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
+                    <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">Avg Accuracy</div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">
+                      {avgAccuracy ? `±${avgAccuracy}m` : 'N/A'}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
+                    <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">Best Accuracy</div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">
+                      {bestAccuracy ? `±${bestAccuracy}m` : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
                   <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">Estimated Spatial Extent</div>
                   {estimatedArea ? (
@@ -423,21 +529,6 @@ export default function AdminSpatialVerification({ task, activity, verification,
                       <AlertTriangle size={16} /> Boundary not sufficiently closed
                     </div>
                   )}
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
-                    <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">GPS Points</div>
-                    <div className="text-lg font-bold text-[var(--text-primary)]">{coordinates.length}</div>
-                  </div>
-                  <div className="bg-[var(--bg-surface-2)] p-4 rounded-xl border border-[var(--border-subtle)]">
-                    <div className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1">Final Accuracy</div>
-                    <div className="flex items-center gap-1">
-                      <div className="text-lg font-bold text-[var(--text-primary)]">
-                        {gpsAccuracy === null ? 'N/A' : `±${gpsAccuracy}m`}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
