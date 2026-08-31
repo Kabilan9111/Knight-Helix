@@ -1,15 +1,28 @@
-\# Knight-Helix
-\<div align="center">
-\# 🏗️ SANCHALAN
-\### Project Execution Intelligence Platform
-[![Typing SVG]\\([[https://readme-typing-svg.demolab.com?font=Fira+Code&size=24&duration=2500&pause=1000&color=DC2626&center=true&vCenter=true&width=950&lines=Turning+Project+Plans+into+Execution+Reality.;Understanding+what+is+happening+on+site.;Verifying+field+execution+with+real+evidence.;Predicting+the+ripple+effect+of+delays.;Helping+project+teams+make+better+decisions.)\\\](https://git.io/typing-svg\](https://readme-typing-svg.demolab.com?font=Fira+Code\\&size=24\\&duration=2500\\&pause=1000\\&color=DC2626\\&center=true\\&vCenter=true\\&width=950\\&lines=Turning+Project+Plans+into+Execution+Reality.;Understanding+what+is+happening+on+site.;Verifying+field+execution+with+real+evidence.;Predicting+the+ripple+effect+of+delays.;Helping+project+teams+make+better+decisions.\\)\]\\(https://git.io/typing-svg)](https://readme-typing-svg.demolab.com?font=Fira+Code\&size=24\&duration=2500\&pause=1000\&color=DC2626\&center=true\&vCenter=true\&width=950\&lines=Turning+Project+Plans+into+Execution+Reality.;Understanding+what+is+happening+on+site.;Verifying+field+execution+with+real+evidence.;Predicting+the+ripple+effect+of+delays.;Helping+project+teams+make+better+decisions.\)\\]\(https://git.io/typing-svg]\(https://readme-typing-svg.demolab.com?font=Fira+Code\\\&size=24\\\&duration=2500\\\&pause=1000\\\&color=DC2626\\\&center=true\\\&vCenter=true\\\&width=950\\\&lines=Turning+Project+Plans+into+Execution+Reality.;Understanding+what+is+happening+on+site.;Verifying+field+execution+with+real+evidence.;Predicting+the+ripple+effect+of+delays.;Helping+project+teams+make+better+decisions.\\\)]\\\(https://git.io/typing-svg\)))
-\<br>
-![Project Execution Intelligence]\\([[https://img.shields.io/badge/PROJECT%20EXECUTION%20INTELLIGENCE-DC2626?style=for-the-badge&labelColor=111827&color=DC2626\](https://img.shields.io/badge/PROJECT%20EXECUTION%20INTELLIGENCE-DC2626?style=for-the-badge\\&labelColor=111827\\&color=DC2626)](https://img.shields.io/badge/PROJECT%20EXECUTION%20INTELLIGENCE-DC2626?style=for-the-badge\&labelColor=111827\&color=DC2626]\(https://img.shields.io/badge/PROJECT%20EXECUTION%20INTELLIGENCE-DC2626?style=for-the-badge\\\&labelColor=111827\\\&color=DC2626\)))
-\<br>
-\*\*From Plan → Reality → Intelligence → Action\*\*
-\<br>
+# Knight-Helix
+
+<div align="center">
+
+# 🏗️ SANCHALAN
+
+### Project Execution Intelligence Platform
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=24&duration=2500&pause=1000&color=DC2626&center=true&vCenter=true&width=950&lines=Turning+Project+Plans+into+Execution+Reality.;Understanding+what+is+happening+on+site.;Verifying+field+execution+with+real+evidence.;Predicting+the+ripple+effect+of+delays.;Helping+project+teams+make+better+decisions.)](https://git.io/typing-svg)
+
+<br>
+
+![Project Execution Intelligence](https://img.shields.io/badge/PROJECT%20EXECUTION%20INTELLIGENCE-DC2626?style=for-the-badge&labelColor=111827&color=DC2626)
+
+<br>
+
+### From Plan → Reality → Intelligence → Action
+
+<br>
+
 SANCHALAN is a Project Execution Intelligence platform that connects
 planned project activities with real field execution, evidence,
 risk, dependencies, visualization and decision support.
-\</div>
-\---
+
+</div>
+
+---
+
