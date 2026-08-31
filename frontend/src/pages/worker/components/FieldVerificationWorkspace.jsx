@@ -11,7 +11,7 @@ export default function FieldVerificationWorkspace({ task, activityId, onClose, 
   
   const fileInputRef = useRef(null);
 
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -25,6 +25,50 @@ export default function FieldVerificationWorkspace({ task, activityId, onClose, 
       setError('Screenshots and WhatsApp images are not allowed. Please capture or upload an original photo.');
       return;
     }
+    
+    if (fileNameLower.includes('midjourney') || fileNameLower.includes('dalle') || fileNameLower.includes('stable-diffusion') || fileNameLower.includes('ai-generated') || fileNameLower.includes('ai_generated') || fileNameLower.includes('flux') || fileNameLower.includes('bing')) {
+      setError('AI-generated images are strictly prohibited. Please attach an authentic field photo.');
+      return;
+    }
+
+    // Heuristic: authentic field photos usually have EXIF data. AI-generated images usually do not.
+    // Also, field photos are predominantly JPEG.
+    const isAuthentic = await new Promise((resolve) => {
+      if (file.type !== 'image/jpeg' && file.type !== 'image/jpg') {
+        // Strict mode: Only allow JPEGs for field evidence
+        resolve(false);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const view = new DataView(event.target.result);
+        if (view.byteLength < 4 || view.getUint16(0, false) !== 0xFFD8) {
+          resolve(false);
+          return;
+        }
+        const length = view.byteLength;
+        let offset = 2;
+        while (offset < length) {
+          const marker = view.getUint16(offset, false);
+          if (marker === 0xFFE1) {
+            resolve(true);
+            return;
+          } else if ((marker & 0xFF00) !== 0xFF00) {
+            break;
+          } else {
+            offset += view.getUint16(offset + 2, false) + 2;
+          }
+        }
+        resolve(false);
+      };
+      // Read first 128KB to find EXIF headers
+      reader.readAsArrayBuffer(file.slice(0, 128 * 1024));
+    });
+
+    if (!isAuthentic) {
+      setError('System detected this image may be AI-generated or modified. Authentic, original camera photos with metadata are required.');
+      return;
+    }
 
     if (file.size > 10 * 1024 * 1024) {
       setError('Image is too large. Maximum size is 10MB.');
@@ -34,11 +78,11 @@ export default function FieldVerificationWorkspace({ task, activityId, onClose, 
     setImage(file);
     setError('');
     
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
+    const previewReader = new FileReader();
+    previewReader.onloadend = () => {
+      setPreview(previewReader.result);
     };
-    reader.readAsDataURL(file);
+    previewReader.readAsDataURL(file);
   };
 
   const handleRemoveImage = () => {
