@@ -8,10 +8,12 @@ import {
 import { 
   CheckCircle2, Clock, AlertTriangle, Navigation, Camera, 
   ArrowRight, Activity, ShieldCheck, HardHat, RefreshCw, 
-  TrendingUp, Users, ChevronRight, Sparkles, MapPin, Layers
+  TrendingUp, Users, ChevronRight, Sparkles, MapPin, Layers, Plus
 } from 'lucide-react';
 
 import { API_URL } from '../config';
+import MobileAssignTaskModal from '../components/MobileAssignTaskModal';
+import MobileAIPlannerModal from '../components/MobileAIPlannerModal';
 
 export default function MobileHome() {
   const { user, token, isOnline, outboxCount } = useMobileAuth();
@@ -24,6 +26,10 @@ export default function MobileHome() {
   const [tasks, setTasks] = useState([]);
   const [pendingVerifications, setPendingVerifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
+  const [aiPlannerContext, setAiPlannerContext] = useState({});
 
   const loadData = async () => {
     try {
@@ -160,6 +166,35 @@ export default function MobileHome() {
           </div>
         </div>
       </div>
+
+      {/* Site Engineer Quick Action: Assign Task Bar */}
+      {(user?.role === 'ADMIN' || user?.role === 'SITE_ENGINEER') && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAssignModalOpen(true)}
+            className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all"
+          >
+            <Plus size={16} /> Assign New Task
+          </button>
+          <button
+            onClick={() => {
+              setAiPlannerContext({
+                title: 'Civil & Piping Operational Work',
+                projectName: activeProject.name,
+                projectId: selectedProjectId,
+                site: activeProject.location || 'Site B',
+                priority: 'High',
+                startDate: new Date().toISOString().split('T')[0],
+                dueDate: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString().split('T')[0]
+              });
+              setAiPlannerModalOpen(true);
+            }}
+            className="py-3 px-3.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 active:scale-95 text-white rounded-2xl text-xs font-black shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all"
+          >
+            <Sparkles size={16} /> AI Planner
+          </button>
+        </div>
+      )}
 
       {/* Pending Site Engineer Verification Queue Banner */}
       {(user?.role === 'ADMIN' || user?.role === 'SITE_ENGINEER') && pendingVerifications.length > 0 && (
@@ -332,6 +367,31 @@ export default function MobileHome() {
           </div>
         )}
       </div>
+
+      {/* Modals for Site Engineer */}
+      <MobileAssignTaskModal
+        isOpen={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        token={token}
+        onTaskCreated={() => {
+          loadData();
+        }}
+        onOpenAIPlanner={(context) => {
+          setAssignModalOpen(false);
+          setAiPlannerContext(context);
+          setAiPlannerModalOpen(true);
+        }}
+      />
+
+      <MobileAIPlannerModal
+        isOpen={aiPlannerModalOpen}
+        onClose={() => setAiPlannerModalOpen(false)}
+        contextData={aiPlannerContext}
+        token={token}
+        onTaskCreated={() => {
+          loadData();
+        }}
+      />
 
     </div>
   );

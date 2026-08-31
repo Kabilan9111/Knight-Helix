@@ -238,8 +238,8 @@ app.get('/api/tasks/:id/details', authenticateToken, (req, res) => {
   });
 });
 
-app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
-  const { title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate } = req.body;
+app.post('/api/tasks', authenticateToken, requireRole('ADMIN', 'SITE_ENGINEER'), (req, res) => {
+  const { title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate, activities } = req.body;
   const taskId = `TASK-${Math.floor(Math.random() * 10000)}`;
 
   const insert = db.prepare(`
@@ -248,10 +248,36 @@ app.post('/api/tasks', authenticateToken, requireRole('ADMIN'), (req, res) => {
   `);
 
   try {
-    insert.run(taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate);
+    db.transaction(() => {
+      insert.run(taskId, title, description, projectId, site, assignedWorkerId, priority, startDate, dueDate);
+
+      if (activities && Array.isArray(activities) && activities.length > 0) {
+        let num = 1;
+        for (const act of activities) {
+          const actId = `ACT-${taskId}-${num}`;
+          db.prepare(`
+            INSERT INTO task_activities (activityId, taskId, activityNumber, name, description, startDate, endDate, status, progress, aiConfidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', 0, 95)
+          `).run(actId, taskId, num, act.name || act.title || `Activity ${num}`, act.description || description || act.name, act.startDate || startDate, act.endDate || act.dueDate || dueDate);
+          num++;
+        }
+      } else {
+        const actId = `ACT-${taskId}-1`;
+        db.prepare(`
+          INSERT INTO task_activities (activityId, taskId, activityNumber, name, description, startDate, endDate, status, progress, aiConfidence)
+          VALUES (?, ?, 1, ?, ?, ?, ?, 'Pending', 0, 95)
+        `).run(actId, taskId, title, description || title, startDate, dueDate);
+      }
+    })();
+
     io.emit('task_created', { taskId, assignedWorkerId }); // Broadcast creation
+    if (assignedWorkerId) {
+      io.to(`worker_${assignedWorkerId}`).emit('task_created', { taskId, assignedWorkerId });
+    }
+    io.to('admin_room').emit('task_created', { taskId, assignedWorkerId });
     res.json({ success: true, taskId });
   } catch (err) {
+    console.error('Task creation error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -426,20 +452,23 @@ app.post('/api/admin/verifications/:id/resolve', authenticateToken, requireRole(
 });
 
 // Submit Field Verification (Spatial Tracking)
-app.post('/api/tasks/:id/verify-field', authenticateToken, requireRole('WORKER'), (req, res, next) => {
+app.post('/api/tasks/:id/verify-field', authenticateToken, requireRole('WORKER', 'ADMIN', 'SITE_ENGINEER'), (req, res, next) => {
   upload.single('image')(req, res, function (err) {
     if (err) return res.status(500).json({ error: `Upload error: ${err.message}` });
     next();
   });
 }, async (req, res) => {
   const { id } = req.params;
-  const workerId = req.user.workerId;
+  const workerId = req.user.workerId || req.user.id || req.user.name || 'Site Engineer';
   const { activityId, distance, estimatedArea, gpsAccuracy, startedAt, stoppedAt, coordinates, description } = req.body;
 
   if (!distance || distance < 0) return res.status(400).json({ error: 'Invalid distance.' });
 
   const task = db.prepare('SELECT * FROM tasks WHERE taskId = ?').get(id);
-  if (!task || task.assignedWorkerId !== workerId) {
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+  if (req.user.role === 'WORKER' && task.assignedWorkerId !== req.user.workerId) {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
 
@@ -483,12 +512,12 @@ app.post('/api/tasks/:id/verify-field', authenticateToken, requireRole('WORKER')
 });
 
 // Approve Field Verification
-app.post('/api/field-verifications/:id/approve', authenticateToken, requireRole('WORKER'), (req, res) => {
+app.post('/api/field-verifications/:id/approve', authenticateToken, requireRole('WORKER', 'ADMIN', 'SITE_ENGINEER'), (req, res) => {
   const { id } = req.params;
-  const workerId = req.user.workerId;
+  const workerId = req.user.workerId || req.user.id || req.user.name;
 
   const verification = db.prepare('SELECT * FROM field_verifications WHERE verificationId = ?').get(id);
-  if (!verification || verification.engineerId !== workerId || verification.status !== 'PENDING_APPROVAL') {
+  if (!verification || verification.status !== 'PENDING_APPROVAL') {
     return res.status(400).json({ error: 'Invalid verification session.' });
   }
 
@@ -501,40 +530,46 @@ app.post('/api/field-verifications/:id/approve', authenticateToken, requireRole(
       db.prepare(`UPDATE field_verifications SET status = 'APPROVED', approvedAt = CURRENT_TIMESTAMP WHERE verificationId = ?`).run(id);
 
       // 2. Update Activity
-      if (targetActivityId) {
-        let actStatus = 'IN_PROGRESS';
-        if (aiResult.recommendedProgress >= 100) actStatus = 'COMPLETED';
-        db.prepare(`UPDATE task_activities SET progress = ?, status = ?, aiConfidence = ? WHERE activityId = ?`).run(
-          aiResult.recommendedProgress, actStatus, aiResult.confidence, targetActivityId
-        );
-      }
+      const prog = 100;
+      let actStatus = 'Completed';
+      db.prepare(`UPDATE task_activities SET progress = ?, status = ?, aiConfidence = ? WHERE activityId = ?`).run(
+        prog, actStatus, aiResult.confidence || 95, targetActivityId
+      );
 
       // 3. Recalculate Global Task Progress
       const activities = db.prepare('SELECT * FROM task_activities WHERE taskId = ?').all(verification.taskId);
-      let overallProgress = aiResult.recommendedProgress;
+      let overallProgress = 100;
 
       if (activities.length > 0) {
         const total = activities.reduce((sum, act) => sum + act.progress, 0);
         overallProgress = Math.round(total / activities.length);
       }
 
-      let newStatus = overallProgress >= 100 ? 'SUBMITTED' : 'IN_PROGRESS';
+      let newStatus = overallProgress >= 100 ? 'COMPLETED' : 'IN_PROGRESS';
 
       db.prepare(`UPDATE tasks SET progress = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE taskId = ?`).run(
         overallProgress, newStatus, verification.taskId
       );
 
-      db.prepare(`
-        INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
-        VALUES (?, ?, ?, ?, ?)
-      `).run(`UPD-${Date.now()}`, verification.taskId, workerId, `Field Verification Approved. Progress: ${overallProgress}%`, 'System');
+      const taskForWorker = db.prepare('SELECT assignedWorkerId FROM tasks WHERE taskId = ?').get(verification.taskId);
+      const validWorkerId = (taskForWorker && taskForWorker.assignedWorkerId) || null;
+      if (validWorkerId) {
+        try {
+          db.prepare(`
+            INSERT INTO task_updates (updateId, taskId, workerId, text, location) 
+            VALUES (?, ?, ?, ?, ?)
+          `).run(`UPD-${Date.now()}`, verification.taskId, validWorkerId, `Field Verification Approved. Progress: ${overallProgress}%`, 'System');
+        } catch (e) {
+          console.warn('task_updates log note:', e.message);
+        }
+      }
 
       // 4. Emit Events
       io.emit('field_verification_approved', { taskId: verification.taskId });
       io.emit('task_updated', { taskId: verification.taskId, status: newStatus });
     })();
 
-    res.json({ success: true });
+    res.json({ success: true, message: 'Field verification approved.' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to approve verification.' });

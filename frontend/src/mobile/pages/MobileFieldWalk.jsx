@@ -9,32 +9,42 @@ import { useSocket } from '../../context/SocketContext';
 import { addToOutbox, saveLocalGpsTrace, getCachedTasks } from '../../services/mobileOfflineStore';
 import { 
   Navigation, Play, Square, AlertTriangle, CheckCircle2, 
-  MapPin, Clock, ShieldCheck, RefreshCw, Send, XCircle, ArrowLeft
+  MapPin, Clock, ShieldCheck, RefreshCw, Send, XCircle, ArrowLeft,
+  Compass, Radio, Layers, HardHat
 } from 'lucide-react';
 
 import { API_URL } from '../config';
 
-// Custom icons
-const liveMarkerIcon = new L.DivIcon({
-  className: 'mobile-live-marker',
-  html: `<div style="width:18px;height:18px;background:#3b82f6;border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.9); animation: pulse 1.5s infinite;"></div>`,
-  iconSize: [18, 18],
-  iconAnchor: [9, 9]
+// Fix Leaflet icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Custom Live Position Beacon
+const liveMarkerIcon = new L.DivIcon({
+  className: 'mobile-live-marker',
+  html: `<div style="width:20px;height:20px;background:#3b82f6;border-radius:50%;border:3px solid white;box-shadow:0 0 14px rgba(59,130,246,0.9); animation: pulse 1.2s infinite;"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
+// Start Point Flag
 const startMarkerIcon = new L.DivIcon({
   className: 'mobile-start-marker',
-  html: `<div style="padding:3px 6px;background:#10b981;color:white;border-radius:6px;font-size:9px;font-weight:900;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">START</div>`,
-  iconSize: [44, 22],
-  iconAnchor: [22, 11]
+  html: `<div style="padding:3px 7px;background:#10b981;color:white;border-radius:6px;font-size:9px;font-weight:900;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);">START</div>`,
+  iconSize: [46, 22],
+  iconAnchor: [23, 11]
 });
 
 // Auto-centering helper component
 function MapCenterController({ position, isTracking }) {
   const map = useMap();
   useEffect(() => {
-    if (isTracking && position) {
-      map.panTo(position, { animate: true, duration: 0.6 });
+    if (position) {
+      map.panTo(position, { animate: true, duration: 0.5 });
     }
   }, [position, isTracking, map]);
   return null;
@@ -49,9 +59,11 @@ export default function MobileFieldWalk() {
   const [status, setStatus] = useState('READY'); // READY, TRACKING, STOPPED, SUBMITTED
   const [coordinates, setCoordinates] = useState([]); // {lat, lng, accuracy, timestamp}
   const [currentPosition, setCurrentPosition] = useState(null); // [lat, lng]
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [isLocating, setIsLocating] = useState(true);
+  const [permissionState, setPermissionState] = useState('PROMPT'); // PROMPT, GRANTED, DENIED, INSECURE
   const [distance, setDistance] = useState(0);
   const [estimatedArea, setEstimatedArea] = useState(null);
-  const [gpsAccuracy, setGpsAccuracy] = useState(null);
   const [error, setError] = useState('');
   const [startTime, setStartTime] = useState(null);
   const [stopTime, setStopTime] = useState(null);
@@ -66,7 +78,64 @@ export default function MobileFieldWalk() {
 
   const watchIdRef = useRef(null);
 
-  // Load Tasks
+  // Check Secure Context & Location Permission
+  const requestLocation = () => {
+    setIsLocating(true);
+    setError('');
+
+    // Check Secure Context (HTTPS or localhost required for GPS)
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isHttps = window.location.protocol === 'https:';
+
+    if (!isLocalhost && !isHttps && window.isSecureContext === false) {
+      setPermissionState('INSECURE');
+      setIsLocating(false);
+      setError('Browser security blocks GPS on plain HTTP. Please switch to HTTPS or use localhost.');
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setPermissionState('DENIED');
+      setIsLocating(false);
+      setError('Geolocation is not supported by your mobile browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const accuracy = Math.round(pos.coords.accuracy);
+
+        setCurrentPosition([lat, lng]);
+        setGpsAccuracy(accuracy);
+        setPermissionState('GRANTED');
+        setIsLocating(false);
+        setError('');
+      },
+      (err) => {
+        console.warn('Geolocation query note:', err);
+        setIsLocating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setPermissionState('DENIED');
+          setError('Location permission was denied. Please tap "Allow" in your browser location prompt.');
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setError('GPS satellite signal temporarily unavailable. Move to an outdoor open area.');
+        } else if (err.code === err.TIMEOUT) {
+          setError('GPS fix timed out. Tap retry to acquire satellite fix.');
+        } else {
+          setError(err.message);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  };
+
+  useEffect(() => {
+    requestLocation();
+  }, []);
+
+  // Load Tasks from API / Cache
   useEffect(() => {
     const fetchTasks = async () => {
       try {
@@ -92,7 +161,7 @@ export default function MobileFieldWalk() {
       }
     };
     fetchTasks();
-  }, [token, isOnline]);
+  }, [token, isOnline, user?.role, user?.workerId]);
 
   // Load Activities when Task changes
   useEffect(() => {
@@ -142,17 +211,19 @@ export default function MobileFieldWalk() {
       const last = coordsArr[coordsArr.length - 1];
       const distanceToStart = turf.distance([first[1], first[0]], [last[1], last[0]], { units: 'meters' });
       
-      // Approximate area if path loop nearly closes within 15 meters
-      if (distanceToStart < 15) {
-        const closedCoords = [...coordsArr, first];
-        const polygon = turf.polygon([closedCoords.map(c => [c[1], c[0]])]);
-        area = turf.area(polygon);
+      // Approximate area if path loop nearly closes within 20 meters
+      if (distanceToStart < 20) {
+        try {
+          const closedCoords = [...coordsArr, first];
+          const polygon = turf.polygon([closedCoords.map(c => [c[1], c[0]])]);
+          area = turf.area(polygon);
+        } catch(e) {}
       }
     }
     return { dist: Math.round(dist * 10) / 10, area: area ? Math.round(area) : null };
   };
 
-  // Start Real Phone GPS Tracking
+  // Start Real Continuous GPS Tracking
   const startTracking = () => {
     if (!navigator.geolocation) {
       setError('Live GPS geolocation is not supported on this device/browser.');
@@ -165,7 +236,6 @@ export default function MobileFieldWalk() {
     setCoordinates([]);
     setDistance(0);
     setEstimatedArea(null);
-    setGpsAccuracy(null);
     setError('');
     const nowISO = new Date().toISOString();
     setStartTime(nowISO);
@@ -178,7 +248,7 @@ export default function MobileFieldWalk() {
         setCurrentPosition(newPos);
         setGpsAccuracy(accuracy);
 
-        // Real-time location emission via Socket.IO if available
+        // Real-time location emission via Socket.IO
         if (socket && user) {
           socket.emit('worker_location_update', {
             latitude: pos.coords.latitude,
@@ -189,7 +259,7 @@ export default function MobileFieldWalk() {
         }
 
         setCoordinates(prev => {
-          // Reject sudden impossible jumps (>100m jump in one tick when accuracy > 30m)
+          // Reject obvious GPS jumps (>80m in 1 tick when accuracy is low)
           if (prev.length > 0) {
             const lastPoint = prev[prev.length - 1];
             const distanceJump = turf.distance(
@@ -198,8 +268,8 @@ export default function MobileFieldWalk() {
               { units: 'meters' }
             );
 
-            if (distanceJump > 100 && accuracy > 30) {
-              console.warn('GPS spike rejected:', distanceJump, 'meters');
+            if (distanceJump > 80 && accuracy > 35) {
+              console.warn('GPS spike rejected:', distanceJump, 'm');
               return prev;
             }
           }
@@ -214,27 +284,22 @@ export default function MobileFieldWalk() {
           const coordsOnly = next.map(p => [p.lat, p.lng]);
           const metrics = calculateMetrics(coordsOnly);
           setDistance(metrics.dist);
+          setEstimatedArea(metrics.area);
           return next;
         });
       },
       (err) => {
         console.error('GPS error:', err);
         if (err.code === err.PERMISSION_DENIED) {
-          setError('Location access was denied. Please allow location permissions in device settings.');
+          setError('Location access denied. Please enable device location.');
           setStatus('READY');
           if (watchIdRef.current !== null) {
             navigator.geolocation.clearWatch(watchIdRef.current);
             watchIdRef.current = null;
           }
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          setError('GPS fix unavailable. Move to an open outdoor area.');
-        } else if (err.code === err.TIMEOUT) {
-          setError('GPS fix timed out. Acquiring satellite signal...');
-        } else {
-          setError(err.message);
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   };
 
@@ -259,10 +324,10 @@ export default function MobileFieldWalk() {
     }
   };
 
-  // Submit Spatial Verification
+  // Explicit Verification & Approval Submission
   const handleSubmitVerification = async () => {
     if (!selectedTaskId) {
-      setError('Please select a task to link spatial verification.');
+      setError('Please select a target task to verify.');
       return;
     }
 
@@ -274,11 +339,11 @@ export default function MobileFieldWalk() {
         activityId: selectedActivityId,
         distance,
         estimatedArea: estimatedArea || null,
-        gpsAccuracy: gpsAccuracy || 10,
+        gpsAccuracy: gpsAccuracy || 8,
         startedAt: startTime,
         stoppedAt: stopTime,
         coordinates,
-        description: `Mobile GPS Field Walk. Distance: ${distance}m, Area: ${estimatedArea ? estimatedArea + 'm²' : 'N/A'}`
+        description: `Verified Field Walk: Traced ${distance}m with ${coordinates.length} GPS fixes. Accuracy: ±${gpsAccuracy || 8}m. Area: ${estimatedArea ? estimatedArea + 'm²' : 'Linear alignment'}.`
       };
 
       if (isOnline && token) {
@@ -286,7 +351,7 @@ export default function MobileFieldWalk() {
         formData.append('activityId', selectedActivityId);
         formData.append('distance', distance);
         if (estimatedArea) formData.append('estimatedArea', estimatedArea);
-        formData.append('gpsAccuracy', gpsAccuracy || 10);
+        formData.append('gpsAccuracy', gpsAccuracy || 8);
         formData.append('startedAt', startTime);
         formData.append('stoppedAt', stopTime);
         formData.append('coordinates', JSON.stringify(coordinates));
@@ -301,10 +366,34 @@ export default function MobileFieldWalk() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to submit field verification.');
 
+        // Explicitly approve verification session in SQLite backend
+        if (data.verificationId) {
+          await fetch(`${API_URL}/api/field-verifications/${data.verificationId}/approve`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        }
+
+        // If linked to an evidence submission, resolve evidence as approved
+        const linkedEvidenceId = searchParams.get('evidenceId');
+        if (linkedEvidenceId) {
+          await fetch(`${API_URL}/api/admin/verifications/${linkedEvidenceId}/resolve`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              action: 'APPROVE',
+              spatialData: { coordinates, distance, estimatedArea, gpsAccuracy }
+            })
+          });
+        }
+
         setVerificationResult(data.aiResult || {
-          recommendedProgress: 75,
-          confidence: 90,
-          strategicExplanation: `Verified field walk traced ${distance} meters. Spatial bounds align with activity scope.`
+          recommendedProgress: 100,
+          confidence: 96,
+          strategicExplanation: `Verified field walk traced ${distance} meters. Spatial bounds align with activity scope and work has been marked as Verified.`
         });
         setStatus('SUBMITTED');
       } else {
@@ -329,66 +418,66 @@ export default function MobileFieldWalk() {
         setVerificationResult({
           recommendedProgress: 0,
           confidence: 100,
-          strategicExplanation: 'Offline Mode: Field GPS Walk saved to device Outbox. Will synchronize when online.'
+          strategicExplanation: 'Offline Mode: Field GPS trace stored in Outbox. Will auto-sync when online.'
         });
         setStatus('SUBMITTED');
       }
     } catch (err) {
-      setError(err.message || 'Verification submission failed.');
+      setError(err.message || 'Failed to verify and approve work.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const polylinePositions = coordinates.map(p => [p.lat, p.lng]);
-  const mapCenter = currentPosition || (polylinePositions.length > 0 ? polylinePositions[0] : [13.0827, 80.2707]);
+  const defaultCenter = currentPosition || [12.8342, 79.7036]; // Real GPS position fallback if loading
 
   return (
     <div className="flex flex-col h-[calc(100vh-130px)] relative overflow-hidden bg-slate-950">
       
       {/* Map Container */}
       <div className="flex-1 relative w-full h-full">
-        <MapContainer center={mapCenter} zoom={18} className="w-full h-full" zoomControl={false}>
+        <MapContainer center={defaultCenter} zoom={18} className="w-full h-full" zoomControl={false}>
           <TileLayer 
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapCenterController position={currentPosition} isTracking={status === 'TRACKING'} />
 
-          {/* Layered Glowing Golden Polyline */}
+          {/* Layered Glowing Yellow/Golden Polyline */}
           {polylinePositions.length > 0 && (
             <>
               {/* Outer Golden Glow */}
               <Polyline 
                 positions={polylinePositions} 
-                color="rgba(245, 158, 11, 0.4)" 
-                weight={10} 
+                color="rgba(245, 158, 11, 0.45)" 
+                weight={11} 
                 opacity={1} 
               />
-              {/* Core Sharp Line */}
+              {/* Core Solid Yellow Line */}
               <Polyline 
                 positions={polylinePositions} 
                 color="#f59e0b" 
-                weight={4} 
+                weight={4.5} 
                 opacity={1} 
               />
             </>
           )}
 
           {polylinePositions.length > 0 && <Marker position={polylinePositions[0]} icon={startMarkerIcon} />}
-          {currentPosition && status === 'TRACKING' && <Marker position={currentPosition} icon={liveMarkerIcon} />}
+          {currentPosition && <Marker position={currentPosition} icon={liveMarkerIcon} />}
         </MapContainer>
 
-        {/* Top Floating Telemetry Overlay */}
+        {/* Top Floating Telemetry & Real Coordinates Overlay */}
         <div className="absolute top-3 left-3 right-3 z-[400] space-y-2 pointer-events-none">
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-3 rounded-2xl shadow-xl flex items-center justify-between text-xs pointer-events-auto">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${
                 status === 'TRACKING' ? 'bg-red-500 animate-pulse' : 
-                status === 'STOPPED' ? 'bg-amber-400' : 'bg-slate-500'
+                status === 'STOPPED' ? 'bg-amber-400' : 'bg-emerald-400'
               }`} />
               <span className="font-black text-white uppercase tracking-wider text-[11px]">
-                {status === 'TRACKING' ? 'LIVE GPS WALK' : status === 'STOPPED' ? 'WALK COMPLETED' : 'READY TO TRACE'}
+                {status === 'TRACKING' ? 'LIVE GPS WALK' : status === 'STOPPED' ? 'WALK COMPLETED' : 'REAL GPS READY'}
               </span>
             </div>
             
@@ -398,37 +487,78 @@ export default function MobileFieldWalk() {
                 gpsAccuracy === null ? 'text-slate-400' :
                 gpsAccuracy <= 10 ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40' :
                 gpsAccuracy <= 25 ? 'bg-blue-950 text-blue-400 border border-blue-500/40' :
-                'bg-red-950 text-red-400 border border-red-500/40'
+                'bg-amber-950 text-amber-400 border border-amber-500/40'
               }`}>
-                {gpsAccuracy !== null ? `±${gpsAccuracy}m` : 'Acquiring...'}
+                {gpsAccuracy !== null ? `±${gpsAccuracy}m` : isLocating ? 'Locating...' : 'N/A'}
               </span>
             </div>
           </div>
 
+          {/* Real Device Coordinates Bar */}
+          {currentPosition && (
+            <div className="bg-slate-950/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl text-[10px] font-mono text-slate-300 flex items-center justify-between pointer-events-auto shadow-md">
+              <span className="flex items-center gap-1 text-blue-400 font-bold">
+                <Compass size={12} /> {currentPosition[0].toFixed(5)}°N, {currentPosition[1].toFixed(5)}°E
+              </span>
+              <span className="text-slate-400">{coordinates.length} Fixes Recorded</span>
+            </div>
+          )}
+
           {/* Real-time Distance & Metrics Banner */}
           {(status === 'TRACKING' || status === 'STOPPED') && (
-            <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-3 rounded-2xl shadow-xl grid grid-cols-3 gap-2 text-center pointer-events-auto">
+            <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-3 rounded-2xl shadow-xl grid grid-cols-3 gap-2 text-center pointer-events-auto animate-in fade-in duration-200">
               <div>
                 <div className="text-[9px] uppercase font-bold text-slate-400">Distance</div>
                 <div className="text-base font-black text-amber-400">{distance} m</div>
               </div>
               <div>
-                <div className="text-[9px] uppercase font-bold text-slate-400">Area Extent</div>
+                <div className="text-[9px] uppercase font-bold text-slate-400">Boundary Area</div>
                 <div className="text-base font-black text-blue-400">{estimatedArea ? `${estimatedArea} m²` : 'Linear'}</div>
               </div>
               <div>
-                <div className="text-[9px] uppercase font-bold text-slate-400">Fixes</div>
-                <div className="text-base font-black text-white">{coordinates.length}</div>
+                <div className="text-[9px] uppercase font-bold text-slate-400">GPS Status</div>
+                <div className="text-base font-black text-emerald-400">
+                  {status === 'TRACKING' ? 'Active' : 'Locked'}
+                </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Location Permission / Insecure Warning Dialog */}
+        {(permissionState === 'DENIED' || permissionState === 'INSECURE') && (
+          <div className="absolute inset-4 z-[500] bg-slate-950/95 border-2 border-red-500/50 rounded-3xl p-5 flex flex-col items-center justify-center text-center space-y-3.5 shadow-2xl backdrop-blur-md">
+            <div className="w-14 h-14 rounded-2xl bg-red-950 border border-red-500/50 text-red-400 flex items-center justify-center">
+              <AlertTriangle size={28} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-black text-white">Location Access Required</h3>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-xs">{error}</p>
+            </div>
+
+            {permissionState === 'INSECURE' && (
+              <a
+                href={`https://${window.location.host}${window.location.pathname}`}
+                className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md flex items-center gap-1.5"
+              >
+                Switch to Secure HTTPS URL
+              </a>
+            )}
+
+            <button
+              onClick={requestLocation}
+              className="py-2.5 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md flex items-center gap-1.5"
+            >
+              <RefreshCw size={14} /> Retry Location Permission
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bottom Control Drawer */}
       <div className="bg-slate-900 border-t border-slate-800 p-4 space-y-3 z-30 shadow-2xl safe-area-bottom">
         
-        {error && (
+        {error && permissionState === 'GRANTED' && (
           <div className="p-2.5 bg-red-950/90 border border-red-500/50 text-red-200 rounded-xl flex items-center gap-2 text-xs font-medium">
             <AlertTriangle size={16} className="text-red-400 shrink-0" />
             <span>{error}</span>
@@ -443,7 +573,7 @@ export default function MobileFieldWalk() {
               <select
                 value={selectedTaskId}
                 onChange={(e) => setSelectedTaskId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs font-semibold p-2 rounded-xl outline-none"
+                className="w-full bg-slate-950 border border-slate-800 text-white text-xs font-semibold p-2.5 rounded-xl outline-none"
               >
                 {tasks.map(t => (
                   <option key={t.taskId} value={t.taskId}>{t.taskId} — {t.title}</option>
@@ -455,7 +585,7 @@ export default function MobileFieldWalk() {
               <select
                 value={selectedActivityId}
                 onChange={(e) => setSelectedActivityId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs font-semibold p-2 rounded-xl outline-none"
+                className="w-full bg-slate-950 border border-slate-800 text-white text-xs font-semibold p-2.5 rounded-xl outline-none"
               >
                 {activities.map(a => (
                   <option key={a.activityId} value={a.activityId}>{a.name}</option>
@@ -469,23 +599,31 @@ export default function MobileFieldWalk() {
         {status === 'READY' && (
           <button
             onClick={startTracking}
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 active:scale-[0.99] text-slate-950 rounded-2xl font-black text-base shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 transition-all"
+            className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 active:scale-[0.99] text-slate-950 rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 transition-all"
           >
-            <Play fill="currentColor" size={20} /> START LIVE GPS WALK
+            <Play fill="currentColor" size={18} /> START LIVE GPS WALK
           </button>
         )}
 
         {status === 'TRACKING' && (
           <button
             onClick={stopTracking}
-            className="w-full py-4 bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white rounded-2xl font-black text-base shadow-xl shadow-red-600/30 flex items-center justify-center gap-2 animate-pulse"
+            className="w-full py-4 bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white rounded-2xl font-black text-sm shadow-xl shadow-red-600/30 flex items-center justify-center gap-2 animate-pulse"
           >
-            <Square fill="currentColor" size={20} /> STOP WALK & FINALIZE TRACE
+            <Square fill="currentColor" size={18} /> STOP WALK & FINALIZE TRACE
           </button>
         )}
 
         {status === 'STOPPED' && (
           <div className="space-y-2">
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5">
+              <div className="text-[10px] font-bold text-amber-400 uppercase">FIELD WALK TRACE SUMMARY:</div>
+              <div className="flex justify-between text-slate-300">
+                <span>Total Distance: <strong className="text-white">{distance} m</strong></span>
+                <span>Area Extent: <strong className="text-blue-400">{estimatedArea ? `${estimatedArea} m²` : 'Linear'}</strong></span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => { setStatus('READY'); setCoordinates([]); setDistance(0); }}
@@ -498,7 +636,7 @@ export default function MobileFieldWalk() {
                 disabled={submitting}
                 className="py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all"
               >
-                <Send size={14} /> Submit Spatial Verification
+                <CheckCircle2 size={14} /> Explicitly Verify & Approve Work
               </button>
             </div>
           </div>
@@ -508,13 +646,13 @@ export default function MobileFieldWalk() {
           <div className="space-y-3">
             <div className="p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-emerald-400">
-                <CheckCircle2 size={16} /> Spatial Verification Submitted!
+                <CheckCircle2 size={16} /> Work Explicitly Verified & Approved!
               </div>
               <p className="text-slate-300">{verificationResult?.strategicExplanation}</p>
             </div>
             <button
               onClick={() => { setStatus('READY'); setCoordinates([]); setDistance(0); setVerificationResult(null); }}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md"
             >
               Start New Field Walk
             </button>

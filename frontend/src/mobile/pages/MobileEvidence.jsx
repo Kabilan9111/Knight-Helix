@@ -6,10 +6,11 @@ import { addToOutbox, cacheTasks, getCachedTasks } from '../../services/mobileOf
 import { 
   Camera, Upload, X, ShieldCheck, CheckCircle2, AlertTriangle, 
   Loader2, Send, Clock, Calendar, CheckSquare, Layers, Eye, RefreshCw,
-  Sparkles, FileText, ArrowRight
+  Sparkles, FileText, ArrowRight, Navigation, HardHat
 } from 'lucide-react';
 
 import { API_URL } from '../config';
+import MobileCameraCaptureModal from '../components/MobileCameraCaptureModal';
 
 export default function MobileEvidence() {
   const { user, token, isOnline, triggerSync } = useMobileAuth();
@@ -24,20 +25,19 @@ export default function MobileEvidence() {
   const [selectedActivityId, setSelectedActivityId] = useState(searchParams.get('activityId') || '');
   
   // Submission Form State
-  const [image, setImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successResult, setSuccessResult] = useState(null);
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
 
   // Review Queue State (Site Engineer)
   const [pendingQueue, setPendingQueue] = useState([]);
   const [selectedReviewEvidence, setSelectedReviewEvidence] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [resolvingAction, setResolvingAction] = useState(false);
-
-  const fileInputRef = useRef(null);
 
   // Load Tasks
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function MobileEvidence() {
       }
     };
     fetchTasks();
-  }, [token, isOnline]);
+  }, [token, isOnline, user?.role, user?.workerId]);
 
   // Load Activities when Task changes
   useEffect(() => {
@@ -112,52 +112,34 @@ export default function MobileEvidence() {
     if (socket) {
       socket.on('task_updated', fetchPendingQueue);
       socket.on('evidence_verified', fetchPendingQueue);
+      socket.on('task_created', fetchPendingQueue);
       return () => {
         socket.off('task_updated', fetchPendingQueue);
         socket.off('evidence_verified', fetchPendingQueue);
+        socket.off('task_created', fetchPendingQueue);
       };
     }
-  }, [token, user?.role]);
+  }, [socket, token, user?.role]);
 
-  // Handle Photo Selection
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file (JPG, PNG, WEBP).');
-      return;
-    }
-
-    const fileNameLower = file.name.toLowerCase();
-    if (fileNameLower.includes('screenshot') || fileNameLower.includes('whatsapp')) {
-      setError('Screenshots and forwarded images are not allowed. Please capture or upload original site evidence.');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image is too large. Maximum size is 10MB.');
-      return;
-    }
-
-    setImage(file);
+  // Handle Camera Capture from MobileCameraCaptureModal
+  const handleCameraCapture = ({ file, previewUrl }) => {
+    setImageFile(file);
+    setPreview(previewUrl);
     setError('');
-
-    const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result);
-    reader.readAsDataURL(file);
   };
 
   const handleRemoveImage = () => {
-    setImage(null);
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+    setImageFile(null);
     setPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Submit Evidence (Online AI verification or Offline Outbox)
   const handleSubmitEvidence = async () => {
-    if (!image && !description.trim()) {
-      setError('Please attach a photo or provide a description of the completed work.');
+    if (!imageFile && !description.trim()) {
+      setError('Please capture a live photo or provide a description of the completed work.');
       return;
     }
     if (!selectedActivityId) {
@@ -172,7 +154,7 @@ export default function MobileEvidence() {
       if (isOnline && token) {
         // Online: Direct upload to AI pipeline
         const formData = new FormData();
-        if (image) formData.append('image', image);
+        if (imageFile) formData.append('image', imageFile);
         formData.append('description', description);
         formData.append('activityId', selectedActivityId);
 
@@ -190,6 +172,9 @@ export default function MobileEvidence() {
           verification: data.verification,
           message: 'Evidence submitted & verified by SANCHALAN AI!'
         });
+        setImageFile(null);
+        setPreview(null);
+        setDescription('');
       } else {
         // Offline: Queue to IndexedDB Outbox
         await addToOutbox({
@@ -198,35 +183,30 @@ export default function MobileEvidence() {
           payload: {
             activityId: selectedActivityId,
             description,
-            imageBase64: preview,
-            fileName: image ? image.name : 'evidence.jpg'
+            taskId: selectedTaskId
           }
         });
 
         setSuccessResult({
           type: 'OFFLINE',
-          message: 'Offline Mode: Evidence stored securely in Outbox. It will sync automatically when Internet returns.'
+          message: 'Offline Mode: Evidence stored in Outbox and will synchronize when back online.'
         });
+        setImageFile(null);
+        setPreview(null);
+        setDescription('');
       }
-
-      // Reset form
-      handleRemoveImage();
-      setDescription('');
     } catch (err) {
-      setError(err.message || 'Evidence submission failed.');
+      setError(err.message || 'Failed to submit evidence.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Resolve Review Action (Approve / Reject)
+  // Site Engineer Review Action: APPROVE or REJECT
   const handleResolveReview = async (action) => {
-    if (action === 'REJECT' && !rejectionReason.trim()) {
-      alert('Please enter a rejection reason.');
-      return;
-    }
-
+    if (!selectedReviewEvidence) return;
     setResolvingAction(true);
+
     try {
       const res = await fetch(`${API_URL}/api/admin/verifications/${selectedReviewEvidence.evidenceId}/resolve`, {
         method: 'POST',
@@ -234,19 +214,20 @@ export default function MobileEvidence() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ action, rejectionReason })
+        body: JSON.stringify({
+          action,
+          rejectionReason: action === 'REJECT' ? rejectionReason : null
+        })
       });
 
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || 'Resolution failed');
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to resolve evidence.');
 
       setSelectedReviewEvidence(null);
       setRejectionReason('');
       fetchPendingQueue();
     } catch (err) {
-      alert(err.message);
+      alert(`Resolution error: ${err.message}`);
     } finally {
       setResolvingAction(false);
     }
@@ -255,7 +236,7 @@ export default function MobileEvidence() {
   return (
     <div className="p-4 space-y-4 animate-in fade-in duration-200">
       
-      {/* Top Tab Switcher if Site Engineer */}
+      {/* Top Tab Switcher for Site Engineers */}
       {(user?.role === 'ADMIN' || user?.role === 'SITE_ENGINEER') && (
         <div className="grid grid-cols-2 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
           <button
@@ -264,7 +245,7 @@ export default function MobileEvidence() {
               activeTab === 'SUBMIT' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Camera size={14} /> Submit Field Evidence
+            <Camera size={14} /> Submit Field Proof
           </button>
           <button
             onClick={() => { setActiveTab('REVIEW'); setSuccessResult(null); }}
@@ -313,14 +294,14 @@ export default function MobileEvidence() {
 
           <button
             onClick={() => setSuccessResult(null)}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg"
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg"
           >
             Submit Another Evidence
           </button>
         </div>
       )}
 
-      {/* TAB 1: SUBMIT EVIDENCE FORM */}
+      {/* TAB 1: WORKER SUBMIT EVIDENCE FORM */}
       {activeTab === 'SUBMIT' && !successResult && (
         <div className="space-y-4">
           
@@ -367,48 +348,50 @@ export default function MobileEvidence() {
             </div>
           </div>
 
-          {/* Photo Capture & Preview Area */}
+          {/* Camera Capture Section (Gallery Blocked - Real Camera Only) */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Field Evidence Photo
+                Live Camera Field Evidence
               </label>
-              <span className="text-[10px] text-blue-400 font-bold">Original OCR Verified</span>
+              <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                <ShieldCheck size={12} /> Rear Camera Only
+              </span>
             </div>
 
-            <input 
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageSelect}
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-            />
-
             {preview ? (
-              <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-black min-h-[220px] flex items-center justify-center">
-                <img src={preview} alt="Evidence preview" className="max-h-64 object-contain" />
+              <div className="relative rounded-2xl overflow-hidden border border-slate-700 bg-black min-h-[220px] flex items-center justify-center">
+                <img src={preview} alt="Evidence preview" className="max-h-64 w-full object-contain" />
                 <button 
                   onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 p-1.5 bg-black/70 text-red-400 hover:text-white rounded-full shadow-lg"
+                  className="absolute top-3 right-3 p-2 bg-black/80 text-red-400 hover:text-white rounded-full shadow-lg"
                 >
                   <X size={16} />
                 </button>
-                <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-[10px] text-slate-200 font-mono flex items-center gap-1">
-                  <Clock size={10} className="text-emerald-400" /> Today (OCR window valid)
+                <div className="absolute bottom-3 left-3 right-3 bg-black/70 backdrop-blur px-3 py-1.5 rounded-xl text-[10px] text-slate-200 font-mono flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-emerald-400">
+                    <Clock size={11} /> Real Camera Capture
+                  </span>
+                  <button
+                    onClick={() => setCameraModalOpen(true)}
+                    className="text-amber-400 font-bold hover:underline"
+                  >
+                    Retake Photo
+                  </button>
                 </div>
               </div>
             ) : (
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-8 text-center cursor-pointer bg-slate-950/40 active:scale-[0.99] transition-all flex flex-col items-center justify-center group"
+              <button 
+                type="button"
+                onClick={() => setCameraModalOpen(true)}
+                className="w-full border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-2xl p-7 text-center cursor-pointer bg-slate-950/60 active:scale-[0.99] transition-all flex flex-col items-center justify-center group"
               >
-                <div className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Camera size={26} />
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                  <Camera size={28} />
                 </div>
-                <h4 className="text-sm font-black text-white mb-0.5">Tap to Capture Photo</h4>
-                <p className="text-[11px] text-slate-400">Direct camera capture or image upload (Max 10MB)</p>
-              </div>
+                <h4 className="text-sm font-black text-white mb-0.5">TAKE LIVE PHOTO</h4>
+                <p className="text-[11px] text-slate-400">Launches device rear camera (Gallery upload blocked)</p>
+              </button>
             )}
           </div>
 
@@ -449,54 +432,59 @@ export default function MobileEvidence() {
       {/* TAB 2: SITE ENGINEER REVIEW QUEUE */}
       {activeTab === 'REVIEW' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-emerald-400" />
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
               Pending Evidence Reviews ({pendingQueue.length})
             </h3>
             <button 
-              onClick={fetchPendingQueue}
-              className="text-[11px] text-blue-400 font-bold flex items-center gap-1"
+              onClick={fetchPendingQueue} 
+              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
             >
-              <RefreshCw size={12} /> Refresh
+              <RefreshCw size={14} />
             </button>
           </div>
 
           {pendingQueue.length === 0 ? (
-            <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl text-center text-slate-400 text-xs">
-              <CheckCircle2 size={32} className="text-emerald-400 mx-auto mb-2 opacity-60" />
-              Queue is clear. No evidence requires verification.
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs space-y-2">
+              <ShieldCheck size={32} className="mx-auto text-emerald-400" />
+              <div className="font-bold text-white">All Clear! No Pending Submissions</div>
+              <p className="text-slate-500 text-[11px]">Worker photo submissions will appear here for Site Engineer approval.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {pendingQueue.map((item) => (
+              {pendingQueue.map(item => (
                 <div 
                   key={item.evidenceId}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-md space-y-3"
+                  className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 shadow-md"
                 >
-                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                    <span>{item.projectName} • {item.taskId}</span>
-                    <span>{new Date(item.evidenceTime || item.detectedCaptureDateTime).toLocaleTimeString()}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-950 px-2 py-0.5 rounded">
+                      {item.taskId}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-500/40">
+                      Pending Review
+                    </span>
                   </div>
 
                   <div className="flex gap-3">
                     {item.imageBase64 && (
                       <img 
                         src={item.imageBase64} 
-                        alt="Thumbnail" 
-                        onClick={() => setSelectedReviewEvidence(item)}
-                        className="w-20 h-20 object-cover rounded-xl border border-slate-700 shrink-0 cursor-pointer"
+                        alt="Evidence thumbnail" 
+                        className="w-20 h-20 rounded-xl object-cover border border-slate-800 shrink-0 bg-black"
                       />
                     )}
-                    <div className="flex-1 space-y-1">
-                      <h4 className="text-sm font-black text-white leading-tight">
-                        {item.activityName || 'Field Activity'}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <h4 className="text-sm font-black text-white leading-snug truncate">
+                        {item.activityName || item.taskTitle}
                       </h4>
-                      <p className="text-xs text-slate-300 italic line-clamp-2">
-                        "{item.description}"
+                      <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                        {item.description}
                       </p>
-                      <div className="text-[11px] font-bold text-emerald-400">
-                        AI Recommended: {item.recommendedProgress || 100}%
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-0.5">
+                        <span className="flex items-center gap-1">
+                          <HardHat size={11} className="text-amber-400" /> Worker: {item.workerId}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -508,17 +496,17 @@ export default function MobileEvidence() {
                     </div>
                   )}
 
-                  {/* Review Action Button */}
+                  {/* Review Action Buttons */}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
                     <button
                       onClick={() => setSelectedReviewEvidence(item)}
-                      className="py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm"
+                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <Eye size={14} /> Full Review
                     </button>
                     <button
-                      onClick={() => navigate(`/mobile/field-walk?taskId=${item.taskId}&activityId=${item.activityId}`)}
-                      className="py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm"
+                      onClick={() => navigate(`/mobile/field-walk?taskId=${item.taskId}&activityId=${item.activityId}&evidenceId=${item.evidenceId}`)}
+                      className="py-2.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <Navigation size={14} /> Spatial Walk
                     </button>
@@ -585,26 +573,46 @@ export default function MobileEvidence() {
             </div>
 
             {/* Modal Action Buttons */}
-            <div className="p-4 border-t border-slate-800 bg-slate-950 grid grid-cols-2 gap-3">
+            <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-2">
               <button
-                onClick={() => handleResolveReview('REJECT')}
-                disabled={resolvingAction}
-                className="py-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl font-black text-xs shadow-md disabled:opacity-50"
+                onClick={() => {
+                  const ev = selectedReviewEvidence;
+                  setSelectedReviewEvidence(null);
+                  navigate(`/mobile/field-walk?taskId=${ev.taskId}&activityId=${ev.activityId}&evidenceId=${ev.evidenceId}`);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 rounded-xl font-black text-xs shadow-md flex items-center justify-center gap-2"
               >
-                REJECT / HOLD
+                <Navigation size={15} /> START GPS FIELD WALK FOR THIS EVIDENCE
               </button>
-              <button
-                onClick={() => handleResolveReview('APPROVE')}
-                disabled={resolvingAction}
-                className="py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-black text-xs shadow-md disabled:opacity-50"
-              >
-                APPROVE VERIFICATION
-              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleResolveReview('REJECT')}
+                  disabled={resolvingAction}
+                  className="py-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl font-black text-xs shadow-md disabled:opacity-50"
+                >
+                  REJECT / HOLD
+                </button>
+                <button
+                  onClick={() => handleResolveReview('APPROVE')}
+                  disabled={resolvingAction}
+                  className="py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-black text-xs shadow-md disabled:opacity-50"
+                >
+                  APPROVE VERIFICATION
+                </button>
+              </div>
             </div>
 
           </div>
         </div>
       )}
+
+      {/* Live In-App Camera Viewfinder Modal */}
+      <MobileCameraCaptureModal
+        isOpen={cameraModalOpen}
+        onClose={() => setCameraModalOpen(false)}
+        onCapture={handleCameraCapture}
+      />
 
     </div>
   );

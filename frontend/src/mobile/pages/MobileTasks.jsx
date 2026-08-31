@@ -6,10 +6,12 @@ import { cacheTasks, getCachedTasks } from '../../services/mobileOfflineStore';
 import { 
   CheckSquare, Clock, Calendar, AlertTriangle, ChevronDown, 
   ChevronUp, Camera, Navigation, ShieldCheck, CheckCircle2, 
-  Filter, Search, User, Layers, ArrowLeft
+  Filter, Search, User, Layers, ArrowLeft, Plus, Sparkles
 } from 'lucide-react';
 
 import { API_URL } from '../config';
+import MobileAssignTaskModal from '../components/MobileAssignTaskModal';
+import MobileAIPlannerModal from '../components/MobileAIPlannerModal';
 
 // Countdown Timer component for active activity
 function ActivityDeadlineTimer({ activity, taskStatus }) {
@@ -86,6 +88,11 @@ export default function MobileTasks() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedActivities, setExpandedActivities] = useState(new Set());
+  
+  // Modals for Site Engineer task assignment & AI Planner
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [aiPlannerModalOpen, setAiPlannerModalOpen] = useState(false);
+  const [aiPlannerContext, setAiPlannerContext] = useState({});
 
   const requestedTaskId = searchParams.get('taskId');
 
@@ -337,6 +344,34 @@ export default function MobileTasks() {
   return (
     <div className="p-4 space-y-4 animate-in fade-in duration-200">
       
+      {/* Site Engineer Actions: Assign Task & AI Planner */}
+      {(user?.role === 'ADMIN' || user?.role === 'SITE_ENGINEER') && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAssignModalOpen(true)}
+            className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all"
+          >
+            <Plus size={16} /> Assign New Task
+          </button>
+          <button
+            onClick={() => {
+              setAiPlannerContext({
+                title: 'Civil Execution Milestone',
+                projectName: 'Project Alpha - Refinery Expansion',
+                site: 'Site B - Construction Area',
+                priority: 'High',
+                startDate: new Date().toISOString().split('T')[0],
+                dueDate: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString().split('T')[0]
+              });
+              setAiPlannerModalOpen(true);
+            }}
+            className="py-3 px-3.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 active:scale-95 text-white rounded-2xl text-xs font-black shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all"
+          >
+            <Sparkles size={16} /> AI Planner
+          </button>
+        </div>
+      )}
+
       {/* Search and Filters */}
       <div className="space-y-3">
         <div className="relative">
@@ -433,6 +468,32 @@ export default function MobileTasks() {
           ))
         )}
       </div>
+
+      {/* Modals for Site Engineer */}
+      <MobileAssignTaskModal
+        isOpen={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        token={token}
+        onTaskCreated={(newTaskId) => {
+          fetchTasks();
+          if (newTaskId) loadTaskDetails(newTaskId);
+        }}
+        onOpenAIPlanner={(context) => {
+          setAssignModalOpen(false);
+          setAiPlannerContext(context);
+          setAiPlannerModalOpen(true);
+        }}
+      />
+
+      <MobileAIPlannerModal
+        isOpen={aiPlannerModalOpen}
+        onClose={() => setAiPlannerModalOpen(false)}
+        contextData={aiPlannerContext}
+        token={token}
+        onTaskCreated={() => {
+          fetchTasks();
+        }}
+      />
 
     </div>
   );

@@ -8,6 +8,21 @@ import { Users, HardHat, Phone, MapPin, Clock, RefreshCw, Layers, ShieldCheck, C
 
 import { API_URL } from '../config';
 
+// Fix Leaflet icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+const deviceLocationIcon = new L.DivIcon({
+  className: 'mobile-device-location-icon',
+  html: `<div style="width:20px;height:20px;background:#3b82f6;border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.9); animation: pulse 1.5s infinite;"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
 const workerLiveIcon = new L.DivIcon({
   className: 'mobile-worker-live-icon',
   html: `<div style="width:20px;height:20px;background:#10b981;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(16,185,129,0.8); animation: pulse 2s infinite;"></div>`,
@@ -31,13 +46,27 @@ function MapPanner({ center }) {
 }
 
 export default function MobileWorkforceMap() {
-  const { token, isOnline } = useMobileAuth();
+  const { token, isOnline, user } = useMobileAuth();
   const socket = useSocket();
 
+  const [devicePosition, setDevicePosition] = useState(null);
   const [locations, setLocations] = useState([]);
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [workerHistory, setWorkerHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Get initial real device position
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setDevicePosition([pos.coords.latitude, pos.coords.longitude]);
+        },
+        (err) => console.warn('Device location notice:', err.message),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+  }, []);
 
   const fetchLocations = async () => {
     try {
@@ -105,7 +134,7 @@ export default function MobileWorkforceMap() {
   }, [token, selectedWorker]);
 
   const historyPositions = workerHistory.map(p => [p.latitude, p.longitude]);
-  const defaultCenter = selectedWorker && selectedWorker.latitude ? [selectedWorker.latitude, selectedWorker.longitude] : [13.0827, 80.2707];
+  const defaultCenter = devicePosition || (selectedWorker && selectedWorker.latitude ? [selectedWorker.latitude, selectedWorker.longitude] : [13.0827, 80.2707]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-130px)] relative overflow-hidden bg-slate-950">
@@ -117,7 +146,16 @@ export default function MobileWorkforceMap() {
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapPanner center={selectedWorker && selectedWorker.latitude ? [selectedWorker.latitude, selectedWorker.longitude] : null} />
+          <MapPanner center={selectedWorker && selectedWorker.latitude ? [selectedWorker.latitude, selectedWorker.longitude] : devicePosition} />
+
+          {/* Current Device Location Marker */}
+          {devicePosition && (
+            <Marker position={devicePosition} icon={deviceLocationIcon}>
+              <Popup>
+                <div className="text-xs font-bold">📍 Your Device Location</div>
+              </Popup>
+            </Marker>
+          )}
 
           {/* Historical Breadcrumb Polyline */}
           {historyPositions.length > 1 && (
