@@ -102,61 +102,49 @@ The system follows the engineer on the map, records accepted GPS points, calcula
 
 ---
 
----
-
 ## 🛠️ Tech Stack
 
-### Languages
+SANCHALAN combines modern web technologies, backend services, databases, AI/agentic systems, machine-learning models and real-world spatial technologies to support project execution intelligence.
 
-![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![SQL](https://img.shields.io/badge/SQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+### Frontend
 
-### Backend Development
-
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
-![REST API](https://img.shields.io/badge/REST%20API-0B74DE?style=for-the-badge&logo=fastapi&logoColor=white)
-![Maven](https://img.shields.io/badge/Maven-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)
-
-### Frontend Development
-
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![ShadCN UI](https://img.shields.io/badge/ShadCN%20UI-000000?style=for-the-badge&logo=shadcnui&logoColor=white)
 
-### Databases
+### Backend
 
-![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)
+
+### Database
+
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![PostGIS](https://img.shields.io/badge/PostGIS-2E7D32?style=for-the-badge&logo=postgresql&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 
-### Artificial Intelligence
+### AI / Agentic AI
 
-![AI](https://img.shields.io/badge/Artificial%20Intelligence-8A2BE2?style=for-the-badge&logo=openai&logoColor=white)
-![LLM](https://img.shields.io/badge/LLM-111827?style=for-the-badge&logo=openai&logoColor=white)
-![OCR](https://img.shields.io/badge/OCR-DC2626?style=for-the-badge)
-![ASR](https://img.shields.io/badge/ASR-2563EB?style=for-the-badge)
-![Computer Vision](https://img.shields.io/badge/Computer%20Vision-7C3AED?style=for-the-badge)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
+![LlamaIndex](https://img.shields.io/badge/LlamaIndex-111827?style=for-the-badge)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)
+![Dify](https://img.shields.io/badge/Dify-6D5DFB?style=for-the-badge)
+![n8n](https://img.shields.io/badge/n8n-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
 
-### Agentic AI
+### Decision Support System
 
-![AI Agents](https://img.shields.io/badge/AI%20Agents-6D28D9?style=for-the-badge)
-![OpenAI API](https://img.shields.io/badge/OpenAI%20API-412991?style=for-the-badge&logo=openai&logoColor=white)
-![Gemini API](https://img.shields.io/badge/Gemini%20API-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![SHAP](https://img.shields.io/badge/SHAP-8E2C8E?style=for-the-badge)
+![TabNet](https://img.shields.io/badge/TabNet-2563EB?style=for-the-badge)
+![XGBoost](https://img.shields.io/badge/XGBoost-1F8ACB?style=for-the-badge&logo=xgboost&logoColor=white)
 
-### Spatial & Geolocation
+### Streaming & Messaging
 
-![GPS](https://img.shields.io/badge/GPS%20Tracking-DC2626?style=for-the-badge)
-![Geolocation API](https://img.shields.io/badge/Geolocation%20API-2563EB?style=for-the-badge)
-![Geofencing](https://img.shields.io/badge/Geofencing-059669?style=for-the-badge)
-![Maps](https://img.shields.io/badge/Map%20Visualization-0EA5E9?style=for-the-badge)
-
-### Data & Intelligence
-
-![Semantic Matching](https://img.shields.io/badge/Semantic%20Matching-7C3AED?style=for-the-badge)
-![Dependency Graph](https://img.shields.io/badge/Dependency%20Graph-0891B2?style=for-the-badge)
-![Risk Analysis](https://img.shields.io/badge/Risk%20Analysis-F59E0B?style=for-the-badge)
-![Predictive Analytics](https://img.shields.io/badge/Predictive%20Analytics-16A34A?style=for-the-badge)
+![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)
 
 ---
 
