@@ -3,29 +3,30 @@ const router = express.Router();
 const { calculateProjectRisk } = require('../services/riskEngine');
 const jwt = require('jsonwebtoken');
 
-// Reuse existing auth middleware from server (copy basic version for now)
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
-  jwt.verify(token, process.env.JWT_SECRET || 'secret-key-for-jwt-signing', (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid token' });
     req.user = user;
     next();
   });
 };
 
-const requireRole = (role) => {
+const requireRole = (...roles) => {
   return (req, res, next) => {
-    if (!req.user || req.user.role !== role) {
-      return res.status(403).json({ error: 'Forbidden. Requires role: ' + role });
+    if (!req.user || (!roles.includes(req.user.role) && req.user.role !== 'ADMIN')) {
+      return res.status(403).json({ error: 'Forbidden. Requires one of roles: ' + roles.join(', ') });
     }
     next();
   };
 };
 
-router.get('/projects/:projectId/risk-delay-ripple', authenticateToken, requireRole('ADMIN'), (req, res) => {
+router.get('/projects/:projectId/risk-delay-ripple', authenticateToken, (req, res) => {
   const { projectId } = req.params;
   const simulateActivityId = req.query.simulateActivityId || null;
   const simulateDelayDays = parseInt(req.query.simulateDelayDays) || 0;
