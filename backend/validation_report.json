@@ -63,7 +63,7 @@
     {
       "testName": "11. Backend DB Verification & Zero Duplicates",
       "status": "PASS",
-      "details": "Field Verifications in DB: 6, All Unique IDs",
+      "details": "Field Verifications in DB: 7, All Unique IDs",
       "error": null
     },
     {

@@ -1,0 +1,17 @@
+/**
+ * Dynamic API URL resolver for SANCHALAN Mobile
+ * Automatically adapts between localhost (laptop) and LAN IP (mobile phone on Wi-Fi).
+ */
+export const getApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    const protocol = window.location.protocol || 'http:';
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:3001`;
+  }
+  return 'http://localhost:3001';
+};
+
+export const API_URL = getApiUrl();

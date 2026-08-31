@@ -1,7 +1,24 @@
 import { openDB } from 'idb';
+import { getApiUrl } from '../mobile/config';
 
 const DB_NAME = 'sanchalan_mobile_db';
 const DB_VERSION = 1;
+
+function resolveEndpoint(endpoint) {
+  if (!endpoint) return '';
+  if (endpoint.startsWith('/')) {
+    return `${getApiUrl()}${endpoint}`;
+  }
+  try {
+    const url = new URL(endpoint);
+    const currentBase = new URL(getApiUrl());
+    url.protocol = currentBase.protocol;
+    url.host = currentBase.host;
+    return url.toString();
+  } catch {
+    return endpoint;
+  }
+}
 
 /**
  * Initializes IndexedDB for SANCHALAN Mobile
@@ -159,7 +176,8 @@ export async function processOutboxQueue(token, onProgress) {
         formData.append('description', item.payload.description || '');
         formData.append('activityId', item.payload.activityId);
 
-        response = await fetch(item.endpoint, {
+        const targetUrl = resolveEndpoint(item.endpoint);
+        response = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData
@@ -175,13 +193,15 @@ export async function processOutboxQueue(token, onProgress) {
         formData.append('coordinates', JSON.stringify(item.payload.coordinates));
         formData.append('description', item.payload.description || 'Field Verification Walk');
 
-        response = await fetch(item.endpoint, {
+        const targetUrl = resolveEndpoint(item.endpoint);
+        response = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData
         });
       } else if (item.type === 'VERIFICATION_RESOLVE') {
-        response = await fetch(item.endpoint, {
+        const targetUrl = resolveEndpoint(item.endpoint);
+        response = await fetch(targetUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

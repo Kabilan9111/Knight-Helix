@@ -9,7 +9,7 @@ import {
   Filter, Search, User, Layers, ArrowLeft
 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_URL } from '../config';
 
 // Countdown Timer component for active activity
 function ActivityDeadlineTimer({ activity, taskStatus }) {

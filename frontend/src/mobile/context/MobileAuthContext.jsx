@@ -7,7 +7,7 @@ import {
 
 const MobileAuthContext = createContext(null);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_URL } from '../config';
 
 export function MobileAuthProvider({ children }) {
   const [user, setUser] = useState(() => {

@@ -11,7 +11,7 @@ import {
   TrendingUp, Users, ChevronRight, Sparkles, MapPin, Layers
 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_URL } from '../config';
 
 export default function MobileHome() {
   const { user, token, isOnline, outboxCount } = useMobileAuth();
