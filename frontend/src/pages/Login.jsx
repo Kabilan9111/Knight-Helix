@@ -307,7 +307,7 @@ export default function Login() {
           </div>
           
           {/* Segmented Control */}
-          <div className="flex p-1 bg-[#101522] border border-[#1e1e38] rounded-xl mb-8">
+          <div className="flex p-1 bg-[#101522] border border-[#1e1e38] rounded-xl mb-4">
             <button 
               className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${role === 'OWNER' ? 'bg-[#1C1C35] text-white shadow-md border border-[#2a2a4a]' : 'text-[#64748b] hover:text-white'}`}
               onClick={() => { setRole('OWNER'); setWorkerMode(null); setError(''); }}
@@ -325,6 +325,17 @@ export default function Login() {
               onClick={() => { setRole('WORKER'); setError(''); }}
             >
               <HardHat size={16} className={role === 'WORKER' ? 'text-purple-400' : ''} /> Supervisor
+            </button>
+          </div>
+
+          {/* Open Mobile App Quick Link */}
+          <div className="mb-6">
+            <button
+              onClick={() => navigate('/mobile/login')}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-900/50 to-indigo-900/50 hover:from-blue-800/60 hover:to-indigo-800/60 border border-blue-500/40 rounded-xl text-xs font-bold text-blue-300 flex items-center justify-between shadow-sm transition-all"
+            >
+              <span className="flex items-center gap-2">📱 <span>Switch to <strong>SANCHALAN Mobile App</strong></span></span>
+              <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded border border-blue-400/30">PWA Edition →</span>
             </button>
           </div>
 
