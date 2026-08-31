@@ -32,7 +32,7 @@ SANCHALAN brings together ten core capabilities designed to provide a deeper und
 
 ---
 
-<h3><font color=#DC2626>01 · Intelligent Multi-Source Data Capture</font></h3>
+<h3><font color="#DC2626">01 · Intelligent Multi-Source Data Capture</font></h3>
 
 SANCHALAN captures execution information from **DPRs, Excel files, PDFs, text reports, voice updates, images and site reports**.  
 OCR, ASR, computer vision and LLM-based extraction convert unstructured field information into structured execution events.
@@ -99,6 +99,57 @@ Visual indicators are derived from the application's actual execution state and 
 
 During site verification, the Site Engineer can use the device's **real browser geolocation capabilities** to capture live latitude, longitude, accuracy and timestamps.  
 The system follows the engineer on the map, records accepted GPS points, calculates actual walked distance and renders the captured route as a **glowing golden path**, preserving the spatial trace as verification evidence.
+
+---
+
+# 🛠️ Technology Stack
+
+SANCHALAN is built using a modern full-stack architecture combining web application technologies, backend services, databases, AI capabilities and real-world spatial technologies.
+
+### Frontend
+
+- **React** — Component-based user interface and interactive project dashboards
+- **JavaScript** — Application logic and frontend interactions
+- **HTML5** — Application structure and semantic UI
+- **CSS3** — Responsive styling and visual presentation
+
+### Backend
+
+- **Java** — Core backend programming language
+- **Spring Boot** — Backend services, REST APIs and application architecture
+
+### Databases
+
+- **MySQL** — Structured project, activity, schedule, dependency and execution data
+- **MongoDB** — Flexible storage for evidence, unstructured execution information and AI-related data
+
+### Artificial Intelligence
+
+- **AI / LLM Integration** — Natural-language understanding, information extraction, semantic activity linking and decision support
+- **AI Agents** — Proactive analysis, reasoning and recovery recommendations with human approval
+
+### Document & Field Data Processing
+
+- **OCR** — Extraction of information from scanned documents and images
+- **ASR** — Conversion of voice updates into text
+- **Computer Vision** — Analysis of visual field evidence
+- **LLM-based Extraction** — Conversion of unstructured reports into structured execution information
+
+### Spatial & Geolocation
+
+- **Browser Geolocation API** — Real device latitude, longitude, accuracy and timestamp collection
+- **GPS Tracking** — Live movement tracking during spatial verification
+- **Map Visualization** — Real-time location, route and project-area visualization
+- **Geofencing** — Spatial verification against configured project/task locations
+
+### Intelligence & Analytics
+
+- **Semantic Similarity** — Matching field reports with planned L5/L6 activities
+- **Fuzzy Matching** — Handling variations in activity terminology
+- **Dependency Graph Analysis** — Understanding activity relationships
+- **Delay Propagation Logic** — Identifying downstream schedule exposure
+- **Evidence Confidence Scoring** — Combining available verification signals
+- **Historical Pattern Retrieval** — Reusing execution knowledge from previous projects
 
 ---
 
