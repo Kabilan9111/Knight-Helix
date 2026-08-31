@@ -612,12 +612,12 @@ app.get('/api/location/me', authenticateToken, requireRole('WORKER'), (req, res)
   res.json(location || null);
 });
 
-app.get('/api/admin/locations', authenticateToken, requireRole('ADMIN', 'OWNER'), (req, res) => {
+app.get('/api/admin/locations', authenticateToken, requireRole('ADMIN', 'OWNER', 'WORKER'), (req, res) => {
   const locations = db.prepare('SELECT * FROM worker_locations').all();
   res.json(locations);
 });
 
-app.get('/api/admin/locations/:workerId/history', authenticateToken, requireRole('ADMIN', 'OWNER'), (req, res) => {
+app.get('/api/admin/locations/:workerId/history', authenticateToken, requireRole('ADMIN', 'OWNER', 'WORKER'), (req, res) => {
   const { workerId } = req.params;
   const points = db.prepare('SELECT latitude, longitude, accuracy, timestamp FROM worker_location_history WHERE workerId = ? ORDER BY timestamp ASC').all(workerId);
   res.json({ workerId, points });
