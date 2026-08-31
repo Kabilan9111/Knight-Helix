@@ -20,6 +20,12 @@ export default function FieldVerificationWorkspace({ task, activityId, onClose, 
       return;
     }
 
+    const fileNameLower = file.name.toLowerCase();
+    if (fileNameLower.includes('screenshot') || fileNameLower.includes('whatsapp') || fileNameLower.includes('wa00')) {
+      setError('Screenshots and WhatsApp images are not allowed. Please capture or upload an original photo.');
+      return;
+    }
+
     if (file.size > 10 * 1024 * 1024) {
       setError('Image is too large. Maximum size is 10MB.');
       return;
