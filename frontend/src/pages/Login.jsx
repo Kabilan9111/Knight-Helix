@@ -23,7 +23,7 @@ export default function Login() {
 
   const handleSetup = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/setup`, { method: 'POST' });
+      await fetch(`${''}/api/setup`, { method: 'POST' });
       alert('System initialized. Admin credentials check backend/.env');
     } catch(err) {
       console.error(err);
@@ -41,7 +41,7 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+      const res = await fetch(`${''}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email_mobile: formData.email_mobile, password: formData.password })
@@ -82,7 +82,7 @@ export default function Login() {
         ? { fullName: formData.fullName, age: formData.age, gender: formData.gender, mobileNumber: formData.mobileNumber }
         : { fullName: formData.fullName, mobileNumber: formData.mobileNumber };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${endpoint}`, {
+      const res = await fetch(`${''}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

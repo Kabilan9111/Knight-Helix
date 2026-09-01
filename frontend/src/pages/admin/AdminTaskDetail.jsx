@@ -148,7 +148,7 @@ export default function AdminTaskDetail() {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${taskId}/details`, {
+      const res = await fetch(`${''}/api/tasks/${taskId}/details`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

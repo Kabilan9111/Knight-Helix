@@ -16,7 +16,7 @@ export default function WorkerDashboard() {
   const fetchTasks = async () => {
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks?workerId=${user.workerId}`, {
+      const res = await fetch(`${''}/api/tasks?workerId=${user.workerId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

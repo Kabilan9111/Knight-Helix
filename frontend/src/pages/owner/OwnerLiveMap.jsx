@@ -17,7 +17,7 @@ export default function OwnerLiveMap() {
   const fetchLocations = async () => {
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/locations`, {
+      const res = await fetch(`${''}/api/admin/locations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -44,7 +44,7 @@ export default function OwnerLiveMap() {
       if (!focusedWorkerId) return;
       try {
         const token = localStorage.getItem('sanchalan_token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/locations/${focusedWorkerId}/history`, {
+        const res = await fetch(`${''}/api/admin/locations/${focusedWorkerId}/history`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

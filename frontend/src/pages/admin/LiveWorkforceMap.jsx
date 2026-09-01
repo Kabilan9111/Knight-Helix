@@ -17,7 +17,7 @@ export default function LiveWorkforceMap() {
   const fetchLocations = async () => {
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/locations`, {
+      const res = await fetch(`${''}/api/admin/locations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -60,7 +60,7 @@ export default function LiveWorkforceMap() {
       // But actually, it's safer to fetch the complete history on focus to ensure we didn't miss anything.
       try {
         const token = localStorage.getItem('sanchalan_token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/locations/${focusedWorkerId}/history`, {
+        const res = await fetch(`${''}/api/admin/locations/${focusedWorkerId}/history`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

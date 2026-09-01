@@ -19,13 +19,25 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
-app.use(cors());
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or same-origin proxy)
+    if (!origin) return callback(null, true);
+    // Allow localhost and ngrok domains
+    if (origin.match(/^https?:\/\/localhost(:\d+)?$/) || origin.match(/^https?:\/\/[a-z0-9-]+\.ngrok-free\.dev$/)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/api/ai', aiPlannerRoutes);
 app.use('/api/admin/intelligence', intelligenceRoutes);
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, { cors: corsOptions });
 app.set('io', io); // Attach io so routes can access it
 
 const PORT = process.env.PORT || 3001;

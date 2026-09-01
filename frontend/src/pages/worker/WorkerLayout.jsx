@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import WorkerSidebar from './components/WorkerSidebar';
 import WorkerHeader from './components/WorkerHeader';
@@ -6,6 +6,7 @@ import WorkerHeader from './components/WorkerHeader';
 export default function WorkerLayout() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('sanchalan_user') || '{}');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (!user.id || user.role !== 'WORKER') {
@@ -14,9 +15,9 @@ export default function WorkerLayout() {
   }, [user, navigate]);
 
   return (
-    <div className="theme-light flex h-screen w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
-      <div className="w-64 flex-shrink-0 flex flex-col border-r border-[var(--border-subtle)] bg-white">
-        <WorkerSidebar />
+    <div className="theme-light flex h-screen w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)] relative">
+      <div className={`flex-shrink-0 flex flex-col border-r border-[var(--border-subtle)] bg-white transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+        <WorkerSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <WorkerHeader user={user} />

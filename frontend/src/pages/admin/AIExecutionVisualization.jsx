@@ -61,7 +61,7 @@ export default function AIExecutionVisualization() {
       }
 
       const headers = { 'Authorization': `Bearer ${token}` };
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const baseUrl = '';
 
       let formattedTeamId = 'civil-a'; // fallback
       if (selectedTeam === 'Civil Team A') formattedTeamId = 'civil-a';

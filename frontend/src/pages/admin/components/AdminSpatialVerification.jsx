@@ -271,7 +271,7 @@ export default function AdminSpatialVerification({ task, activity, verification,
         }
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/verifications/${idToResolve}/resolve`, {
+      const res = await fetch(`${''}/api/admin/verifications/${idToResolve}/resolve`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

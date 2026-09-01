@@ -10,7 +10,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('sanchalan_token');
-    const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+    const newSocket = io('', {
       auth: {
         token: token
       }

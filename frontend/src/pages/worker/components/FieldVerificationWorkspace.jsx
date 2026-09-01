@@ -111,7 +111,7 @@ export default function FieldVerificationWorkspace({ task, activityId, onClose, 
       formData.append('activityId', activityId);
 
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${task.taskId}/evidence`, {
+      const res = await fetch(`${''}/api/tasks/${task.taskId}/evidence`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData

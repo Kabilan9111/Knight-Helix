@@ -9,7 +9,7 @@ export default function AdminTaskModal({ task, onClose }) {
     const fetchVerifications = async () => {
       try {
         const token = localStorage.getItem('sanchalan_token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks/${task.taskId}/verifications`, {
+        const res = await fetch(`${''}/api/tasks/${task.taskId}/verifications`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

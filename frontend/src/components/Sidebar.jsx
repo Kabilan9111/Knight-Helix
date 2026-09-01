@@ -28,7 +28,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ isCollapsed, setIsCollapsed }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -41,7 +41,7 @@ export default function Sidebar() {
     try {
       const token = localStorage.getItem('sanchalan_token');
       if (!token) return;
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks`, {
+      const res = await fetch(`${''}/api/tasks`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) return;
@@ -88,9 +88,11 @@ export default function Sidebar() {
 
   const NavGroup = ({ title, children }) => (
     <div className="mb-6">
-      <div className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-2 px-6">
-        {title}
-      </div>
+      {!isCollapsed && (
+        <div className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-2 px-6">
+          {title}
+        </div>
+      )}
       <div className="flex flex-col gap-0.5">
         {children}
       </div>
@@ -101,25 +103,26 @@ export default function Sidebar() {
     const isActive = active || location.pathname === path;
     
     return (
-      <div className="px-3">
+      <div className={`px-3 ${isCollapsed ? 'flex justify-center mb-2' : ''}`}>
         <button 
           onClick={onClick || (() => path && navigate(path))}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+          title={isCollapsed ? label : undefined}
+          className={`flex items-center ${isCollapsed ? 'justify-center p-2.5 rounded-lg' : 'justify-between px-3 py-2 w-full rounded-lg'} text-sm transition-all duration-150 ${
             isActive 
               ? 'bg-[var(--accent-primary)] text-white font-medium' 
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-white'
           }`}
         >
           <div className="flex items-center gap-3">
-            <Icon size={16} className={isActive ? 'text-white' : 'text-[var(--text-tertiary)]'} />
-            <span>{label}</span>
+            <Icon size={18} className={isActive ? 'text-white' : 'text-[var(--text-tertiary)]'} />
+            {!isCollapsed && <span>{label}</span>}
           </div>
-          {badge !== undefined && (
+          {!isCollapsed && badge !== undefined && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20' : 'bg-[var(--bg-surface-1)] text-[var(--text-tertiary)]'}`}>
               {badge}
             </span>
           )}
-          {children && (
+          {!isCollapsed && children && (
             isExpanded ? 
             <ChevronDown size={14} className="text-[var(--text-tertiary)]" /> :
             <ChevronRight size={14} className="text-[var(--text-tertiary)]" />
@@ -129,34 +132,54 @@ export default function Sidebar() {
     );
   };
 
-  const SubItem = ({ label, badge, active, onClick }) => (
-    <button 
-      onClick={onClick}
-      className={`w-full flex items-center justify-between pl-11 pr-4 py-1.5 text-[13px] transition-colors ${active ? 'text-white font-medium' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
-    >
-      <span>{label}</span>
-      {badge !== undefined && (
-        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${active ? 'text-white bg-white/20' : 'text-[var(--accent-primary)] bg-[var(--accent-primary-subtle)]'}`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
+  const SubItem = ({ label, badge, active, onClick }) => {
+    if (isCollapsed) return null;
+    return (
+      <button 
+        onClick={onClick}
+        className={`w-full flex items-center justify-between pl-11 pr-4 py-1.5 text-[13px] transition-colors ${active ? 'text-white font-medium' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+      >
+        <span>{label}</span>
+        {badge !== undefined && (
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${active ? 'text-white bg-white/20' : 'text-[var(--accent-primary)] bg-[var(--accent-primary-subtle)]'}`}>
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
-    <div className="h-full flex flex-col pt-6 pb-4 overflow-y-auto custom-scrollbar">
+    <div className="h-full flex flex-col pt-6 pb-4 overflow-y-auto custom-scrollbar relative">
       {/* Brand */}
-      <div className="flex items-center gap-3 px-6 mb-8 cursor-pointer" onClick={() => navigate('/admin/dashboard')}>
-        <svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 2L3 11.5V28.5L20 38L37 28.5V11.5L20 2Z" fill="var(--accent-primary)"/>
-          <path d="M20 7L9 13V27L20 33L31 27V13L20 7Z" fill="var(--bg-base)"/>
-          <path d="M25 15L15 15L15 20L25 20L25 25L15 25" stroke="var(--accent-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        <div>
-          <h1 className="text-[16px] font-bold tracking-wide leading-none text-white">SANCHALAN</h1>
-          <p className="text-[9px] text-[var(--text-tertiary)] tracking-wider mt-0.5">Project Execution Intelligence</p>
+      <div className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-6'} mb-8`}>
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/admin/dashboard')}>
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 2L3 11.5V28.5L20 38L37 28.5V11.5L20 2Z" fill="var(--accent-primary)"/>
+            <path d="M20 7L9 13V27L20 33L31 27V13L20 7Z" fill="var(--bg-base)"/>
+            <path d="M25 15L15 15L15 20L25 20L25 25L15 25" stroke="var(--accent-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {!isCollapsed && (
+            <div>
+              <h1 className="text-[16px] font-bold tracking-wide leading-none text-white">SANCHALAN</h1>
+              <p className="text-[9px] text-[var(--text-tertiary)] tracking-wider mt-0.5">Project Execution Intelligence</p>
+            </div>
+          )}
         </div>
+        {!isCollapsed && setIsCollapsed && (
+          <button onClick={() => setIsCollapsed(true)} className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-white hover:bg-[var(--bg-surface-3)] transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+        )}
       </div>
+
+      {isCollapsed && setIsCollapsed && (
+        <div className="flex justify-center mb-6">
+          <button onClick={() => setIsCollapsed(false)} className="p-2 rounded-lg text-[var(--text-tertiary)] hover:text-white hover:bg-[var(--bg-surface-3)] transition-colors" title="Expand Sidebar">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
 
       <NavGroup title="Overview">
         <NavItem icon={Home} label="Dashboard" path="/admin/dashboard" active />

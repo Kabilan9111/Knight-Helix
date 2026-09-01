@@ -15,7 +15,7 @@ export default function AdminEvidenceVerification() {
 
   const fetchVerifications = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/verifications/pending`, {
+      const res = await fetch(`${''}/api/admin/verifications/pending`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch pending verifications');
@@ -49,7 +49,7 @@ export default function AdminEvidenceVerification() {
 
     setActionLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/verifications/${selectedEvidence.evidenceId}/resolve`, {
+      const res = await fetch(`${''}/api/admin/verifications/${selectedEvidence.evidenceId}/resolve`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,

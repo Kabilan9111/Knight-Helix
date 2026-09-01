@@ -327,7 +327,7 @@ export default function AIPlannerModal({ onClose, projectId = "PROJ-1", contextD
 
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/plan/chat`, {
+      const res = await fetch(`${''}/api/ai/plan/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -403,7 +403,7 @@ export default function AIPlannerModal({ onClose, projectId = "PROJ-1", contextD
         activities: planResult?.plan?.activities || []
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ai/plan/approve`, {
+      const res = await fetch(`${''}/api/ai/plan/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)

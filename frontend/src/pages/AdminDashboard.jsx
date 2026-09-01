@@ -31,9 +31,9 @@ export default function AdminDashboard() {
       const headers = { 'Authorization': `Bearer ${token}` };
       
       const [tasksRes, projRes, workRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/projects`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/workers`, { headers })
+        fetch(`${''}/api/tasks`, { headers }),
+        fetch(`${''}/api/projects`, { headers }),
+        fetch(`${''}/api/workers`, { headers })
       ]);
       
       if (tasksRes.status === 401 || tasksRes.status === 403) {
@@ -92,7 +92,7 @@ export default function AdminDashboard() {
 
   const handleAssignTask = async (taskData) => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/tasks`, {
+      await fetch(`${''}/api/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

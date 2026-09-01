@@ -56,7 +56,7 @@ export default function WorkerLiveMap() {
   const fetchMyPosition = async () => {
     try {
       const token = localStorage.getItem('sanchalan_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/location/me`, {
+      const res = await fetch(`${''}/api/location/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
